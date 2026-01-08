@@ -1,7 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
-import Product from './models/Products.js';
+import Product from './models/common/Products.js';
+import productRoutes from "./routes/product.routes.js";
 
 // CONFIGURATION 
 dotenv.config();
@@ -21,24 +22,8 @@ app.get('/', (req, res)=>{
     res.send('Hello World!');
 }) 
 
-  const products = [];
-
-app.post('/seed', async (req, res) => {
-  try {
-
-    await Product.deleteMany({});
-    await Product.insertMany(products);
-
-    return res.status(201).json({
-      message: 'Products seeded successfully',
-      count: products.length
-    });
-
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: error.message });
-  }
-});
+// PRODUCT ROUTES
+app.use("/api", productRoutes);
 
 // Listening 
 app.listen(PORT, ()=>{
