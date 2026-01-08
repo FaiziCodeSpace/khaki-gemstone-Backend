@@ -22,11 +22,9 @@ const productSchema = new mongoose.Schema({
     required: true
   },
   gem_size: {
-    type: String, // e.g., "8x6mm"
+    type: String,
     required: true
   },
-  
-  // Nested details for better organization and querying
   details: {
     gemstone: { type: String, required: true },
     cut_type: { type: String },
@@ -35,7 +33,7 @@ const productSchema = new mongoose.Schema({
   },
 
   more_information: {
-    weight: { type: Number }, // Usually in carats (ct)
+    weight: { type: Number },
     origin: { type: String },
     treatment: { type: String },
     refractive_index: { type: String }
