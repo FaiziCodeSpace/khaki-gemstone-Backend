@@ -4,7 +4,7 @@ const userSchema = new mongoose.Schema(
   {
     firstName: {
       type: String,
-      required: true,
+      required: true, 
       trim: true,
     },
 
@@ -25,10 +25,11 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      select: false,
+      select: false, // VERY important
     },
+
     phone: {
-      type: String, 
+      type: String,
       trim: true,
     },
 
@@ -53,12 +54,6 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
-    role: {
-      type: String,
-      enum: ["user", "admin"],
-      default: "user",
-    },
-
     isActive: {
       type: Boolean,
       default: true,
@@ -68,5 +63,4 @@ const userSchema = new mongoose.Schema(
 );
 
 const User = mongoose.model("User", userSchema);
-
 export default User;

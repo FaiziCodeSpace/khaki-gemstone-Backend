@@ -2,7 +2,9 @@ import express from 'express';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import Product from './models/common/Products.js';
-import productRoutes from "./routes/product.routes.js";
+import productRoute from "./routes/product.routes.js";
+import authRoute from "./routes/auth.routes.js";
+import cart_Fav from "./routes/cart&Fav.router.js"
 
 // CONFIGURATION 
 dotenv.config();
@@ -23,7 +25,11 @@ app.get('/', (req, res)=>{
 }) 
 
 // PRODUCT ROUTES
-app.use("/api", productRoutes);
+app.use("/api/auth", authRoute);
+app.use("/api", productRoute);
+app.use("/api", cart_Fav);
+app.use("/api", cart_Fav);
+
 
 // Listening 
 app.listen(PORT, ()=>{
