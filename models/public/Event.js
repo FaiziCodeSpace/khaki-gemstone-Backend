@@ -13,7 +13,7 @@ const eventSchema = new mongoose.Schema(
       trim: true,
     },
   },
-  { timestamps: true } // optional, but useful to know when event was created/updated
+  { timestamps: true }
 );
 
 const Event = mongoose.model("Event", eventSchema);
