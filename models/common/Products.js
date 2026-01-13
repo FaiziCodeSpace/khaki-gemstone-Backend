@@ -44,13 +44,18 @@ const productSchema = new mongoose.Schema({
     type: String
   }],
 
+  isLimitedProduct: {
+      type: Boolean,
+      default: true,
+  },
+
   // Media Section
   primary_imgSrc: {
     type: String,
     required: true
   },
   imgs_src: [{
-    type: String // Dynamic array for gallery/slider
+    type: String
   }],
   lab_test_img_src: {
     type: String
@@ -60,7 +65,7 @@ const productSchema = new mongoose.Schema({
   },
   tags: [{ type: String }]
 }, {
-  timestamps: true // Automatically adds createdAt and updatedAt
+  timestamps: true 
 });
 
 const Product = mongoose.model('Product', productSchema);

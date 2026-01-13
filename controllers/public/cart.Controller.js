@@ -19,3 +19,24 @@ export const addToCart = async (req, res) => {
     res.status(500).json({ message: "Error adding to cart", error: error.message });
   }
 };
+
+export const getCart = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const cart = await Cart.findOne({ userId }).populate("items");
+
+    if (!cart) {
+      return res.status(200).json({
+        items: [],
+      });
+    }
+
+    res.status(200).json(cart);
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching cart",
+      error: error.message,
+    });
+  }
+};
