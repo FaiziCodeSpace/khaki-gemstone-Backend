@@ -1,42 +1,52 @@
 import Cart from "../../models/public/Cart.js";
 
+export const getCart = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // Populate "items" to get full product details for the frontend
+    const cart = await Cart.findOne({ userId }).populate("items");
+
+    if (!cart) {
+      return res.status(200).json({ items: [] });
+    }
+
+    // Return the items array directly to match the frontend expectation
+    res.status(200).json(cart.items); 
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching cart", error: error.message });
+  }
+};
+
 export const addToCart = async (req, res) => {
   try {
     const { productId } = req.body;
-    const userId = req.user.id; 
+    const userId = req.user.id;
 
     const cart = await Cart.findOneAndUpdate(
       { userId },
       { $addToSet: { items: productId } },
-      { new: true, upsert: true } 
+      { new: true, upsert: true }
     ).populate("items");
 
-    res.status(200).json({
-      message: "Product added to cart",
-      cart
-    });
+    res.status(200).json(cart.items);
   } catch (error) {
-    res.status(500).json({ message: "Error adding to cart", error: error.message });
+    res.status(500).json({ message: "Error adding to cart" });
   }
 };
 
-export const getCart = async (req, res) => {
+export const removeFromCart = async (req, res) => {
   try {
+    const { productId } = req.params; 
     const userId = req.user.id;
 
-    const cart = await Cart.findOne({ userId }).populate("items");
+    const cart = await Cart.findOneAndUpdate(
+      { userId },
+      { $pull: { items: productId } }, 
+      { new: true }
+    ).populate("items");
 
-    if (!cart) {
-      return res.status(200).json({
-        items: [],
-      });
-    }
-
-    res.status(200).json(cart);
+    res.status(200).json(cart ? cart.items : []);
   } catch (error) {
-    res.status(500).json({
-      message: "Error fetching cart",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Error removing from cart", error: error.message });
   }
 };
