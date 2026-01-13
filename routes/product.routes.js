@@ -4,6 +4,6 @@ const router = express.Router();
 
 // Controller functions (to be implemented)
 router.get('/products', getAllProducts);
-router.get('/products/:id', getProductById);
+router.get('/product/:id', getProductById);
 
 export default router;   
