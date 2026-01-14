@@ -2,20 +2,49 @@ import Product from "../../models/common/Products.js";
 
 export const getAllProducts = async (req, res) => {
     try {
-        const { limited, limit } = req.query;
-        let filter = {};
+        const { limited, limit, search, category, filter: filterQuery } = req.query;
+        let mongoFilter = {};
 
-        // 1. If 'true', only show limited
-        if (limited === 'true') {
-            filter.isLimitedProduct = true;
-        } 
-        // 2. If 'false', only show normal products
-        else if (limited === 'false') {
-            filter.isLimitedProduct = false;
+        if (limited === 'true') mongoFilter.isLimitedProduct = true;
+        if (limited === 'false') mongoFilter.isLimitedProduct = false;
+
+        let conditions = [];
+
+        // 1. ULTIMATE SEARCH: Checks every text field
+        if (search) {
+            conditions.push({
+                $or: [
+                    { name: { $regex: search, $options: 'i' } },
+                    { description: { $regex: search, $options: 'i' } },
+                    { tags: { $regex: search, $options: 'i' } },
+                    { "details.gemstone": { $regex: search, $options: 'i' } },
+                    { "details.cut_type": { $regex: search, $options: 'i' } },
+                    { "details.color": { $regex: search, $options: 'i' } },
+                    { "details.clarity": { $regex: search, $options: 'i' } },
+                    { "more_information.origin": { $regex: search, $options: 'i' } },
+                    { "more_information.treatment": { $regex: search, $options: 'i' } },
+                    { productNumber: { $regex: search, $options: 'i' } }
+                ]
+            });
         }
-        // 3. If undefined, it returns everything (Normal + Limited)
 
-        const products = await Product.find(filter)
+        // 2. Category & Filter: Checking the Tags "Safety Net"
+        // We use Regex here too so 'Rough' matches 'Rough Stones'
+        if (category) {
+            const catPattern = category.split(',').map(s => s.trim()).join('|');
+            conditions.push({ tags: { $regex: catPattern, $options: 'i' } });
+        }
+
+        if (filterQuery) {
+            const filterPattern = filterQuery.split(',').map(s => s.trim()).join('|');
+            conditions.push({ tags: { $regex: filterPattern, $options: 'i' } });
+        }
+
+        if (conditions.length > 0) {
+            mongoFilter.$and = conditions;
+        }
+
+        const products = await Product.find(mongoFilter)
             .sort({ createdAt: -1 })
             .limit(parseInt(limit) || 0);
 
