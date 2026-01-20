@@ -3,15 +3,14 @@ import Cart from "../../models/public/Cart.js";
 export const getCart = async (req, res) => {
   try {
     const userId = req.user.id;
-    // Populate "items" to get full product details for the frontend
     const cart = await Cart.findOne({ userId }).populate("items");
 
+    // Always return an object with an "items" key
     if (!cart) {
       return res.status(200).json({ items: [] });
     }
 
-    // Return the items array directly to match the frontend expectation
-    res.status(200).json(cart.items); 
+    res.status(200).json({ items: cart.items }); 
   } catch (error) {
     res.status(500).json({ message: "Error fetching cart", error: error.message });
   }

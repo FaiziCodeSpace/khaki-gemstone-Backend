@@ -1,66 +1,53 @@
 import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema(
+const investorSchema = new mongoose.Schema(
   {
-    firstName: {
-      type: String,
-      required: true, 
-      trim: true,
-    },
-
-    lastName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-
-    password: {
-      type: String,
-      required: true,
-      select: false, // VERY important
-    },
-
-    phone: {
-      type: String,
-      trim: true,
-    },
-
+    phone: String,
+    cnic: String,
+    city: String,
+    address: String,
+    dob: Date,
     gender: {
       type: String,
       enum: ["male", "female", "other"],
     },
-
-    address: {
-      street: String,
-      city: String,
-      postalCode: String,
+    status: {
+      type: String,
+      enum: ["not_applied", "pending", "approved", "rejected"],
+      default: "not_applied",
     },
+    appliedAt: Date,
+    approvedAt: Date,
+    rejectedAt: Date,
+    balance: { type: Number, default: 0 },
+    totalInvestment: { type: Number, default: 0 },
+    totalEarnings: { type: Number, default: 0 },
+    productsInvested: [
+      {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+        },
+        amountInvested: Number,
+        investedAt: { type: Date, default: Date.now },
+      },
+    ],
+  },
+  { _id: false }
+);
 
-    totalSpent: {
-      type: Number,
-      default: 0,
-    },
-
-    isInvestor: {
-      type: Boolean,
-      default: false,
-    },
-
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
+const userSchema = new mongoose.Schema(
+  {
+    firstName: String,
+    lastName: String,
+    email: { type: String, unique: true },
+    password: { type: String, select: false },
+    isInvestor: { type: Boolean, default: false },
+    investor: investorSchema,
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
 
-const User = mongoose.model("User", userSchema);
+const User = mongoose.models.User || mongoose.model("User", userSchema);
 export default User;

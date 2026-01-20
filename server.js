@@ -19,13 +19,11 @@ app.use(cors({
   credentials: true
 }));
 
-
 // Middleware
 app.use(express.json());
 
 // CONNECT DATABASE
 connectDB();
-
 
 app.get('/', (req, res)=>{
     res.send('Hello World!');
