@@ -6,7 +6,7 @@ import { addToCart, getCart, removeFromCart } from "../controllers/public/cart.C
 const router = express.Router();
 
 router.post("/addCart", protect, addToCart);
-router.get("/Cart", protect, getCart);
+router.get("/cart", protect, getCart);
 
 // 🔹 Changed from .get to .delete and updated param name to :productId
 router.delete("/deleteCartItem/:productId", protect, removeFromCart);
