@@ -5,12 +5,13 @@ import Cart from "../models/public/Cart.js";
 import generateToken from "../utils/generateToken.js";
 import mongoose from "mongoose";
 
+// ================= MERGE CART =================
 const mergeCarts = async (userId, guestCart) => {
   if (!guestCart || !Array.isArray(guestCart) || guestCart.length === 0) return;
 
   try {
     const productIds = guestCart
-      .map(item => (item && typeof item === 'object' ? item._id : item))
+      .map(item => (item && typeof item === "object" ? item._id : item))
       .filter(id => mongoose.Types.ObjectId.isValid(id));
 
     if (productIds.length > 0) {
@@ -31,16 +32,16 @@ export const register = async (req, res) => {
   try {
     const { firstName, lastName, email, password, guestCart, ...investorData } = req.body;
 
-    // 1. Check if user already exists in the system
+    // 1. Check if user already exists
     let user = await User.findOne({ email });
 
     if (user) {
-      // If user is already an investor, don't let them apply again
+      // Already an investor?
       if (user.isInvestor) {
         return res.status(400).json({ message: "This email is already registered as an investor." });
       }
 
-      // 2. Logic for EXISTING Common User -> Upgrading to Investor
+      // EXISTING COMMON USER -> Upgrade to Investor
       user.isInvestor = true;
       user.investor = {
         ...investorData,
@@ -48,13 +49,13 @@ export const register = async (req, res) => {
         appliedAt: new Date(),
       };
 
-      // Update names if they were empty for some reason
+      // Update names if empty
       user.firstName = firstName || user.firstName;
       user.lastName = lastName || user.lastName;
 
       await user.save();
     } else {
-      // 3. Logic for BRAND NEW User
+      // BRAND NEW USER
       if (!password) return res.status(400).json({ message: "Password is required for new users" });
 
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -68,11 +69,11 @@ export const register = async (req, res) => {
           ...investorData,
           status: "pending",
           appliedAt: new Date(),
-        }
+        },
       });
     }
 
-    // Merge cart items regardless of registration path
+    // Merge cart items
     await mergeCarts(user._id, guestCart);
 
     res.status(201).json({
@@ -82,7 +83,8 @@ export const register = async (req, res) => {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        isInvestor: user.isInvestor
+        isInvestor: user.isInvestor,
+        status: user.isInvestor ? user.investor?.status : null,
       },
     });
   } catch (error) {
@@ -93,29 +95,42 @@ export const register = async (req, res) => {
 // ================= LOGIN =================
 export const login = async (req, res) => {
   try {
-    const { email, password, guestCart } = req.body;
+    const { email, password, guestCart, role } = req.body;
 
     const user = await User.findOne({ email }).select("+password");
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+
+    // Role check
+    if (role === "investor") {
+      if (!user.isInvestor) {
+        return res.status(403).json({ message: "This account is not registered as an investor." });
+      }
+
+      if (user.investor?.status !== "approved") {
+        const status = user.investor?.status || "pending";
+        const messages = {
+          pending: "Your investor application is still pending approval.",
+          rejected: "Your investor application was rejected.",
+        };
+        return res.status(403).json({ message: messages[status] || "Account not approved." });
+      }
     }
 
-    // Merge unique items from guest session
+    // Merge cart
     await mergeCarts(user._id, guestCart);
 
-    res.status(201).json({
+    res.status(200).json({
       token: generateToken(user._id),
       user: {
         id: user._id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        isInvestor: user.isInvestor
+        isInvestor: user.isInvestor,
+        status: user.isInvestor ? user.investor?.status : null,
       },
     });
   } catch (error) {
@@ -123,26 +138,23 @@ export const login = async (req, res) => {
   }
 };
 
-// Apply to become an investor
+// ================= APPLY INVESTOR =================
 export const applyInvestor = async (req, res) => {
   try {
-    const { 
-      firstName, lastName, email, password, 
-      phone, cnic, city, address, dob, gender 
+    const {
+      firstName, lastName, email, password,
+      phone, cnic, city, address, dob, gender,
     } = req.body;
 
-    // 1. Check if user exists by email (the unique identifier)
     let user = await User.findOne({ email });
 
     if (user) {
-      // 2. If user exists, check if they are already an investor
       if (user.isInvestor) {
         return res.status(400).json({ message: "This email is already registered as an investor." });
       }
-      // 3. Update existing common user to investor status
       user.isInvestor = true;
     } else {
-      // 4. Create a brand new user if email doesn't exist
+      if (!password) return res.status(400).json({ message: "Password is required for new users" });
       const hashedPassword = await bcrypt.hash(password, 12);
       user = new User({
         firstName,
@@ -153,7 +165,6 @@ export const applyInvestor = async (req, res) => {
       });
     }
 
-    // 5. Attach/Update investor details (This works for both New and Existing users)
     user.investor = {
       phone,
       cnic,
@@ -167,12 +178,17 @@ export const applyInvestor = async (req, res) => {
 
     await user.save();
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: "Investor application processed successfully",
-      isNewUser: !user.createdAt // Simple flag for frontend if needed
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isInvestor: user.isInvestor,
+      },
     });
-
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
