@@ -39,20 +39,9 @@ const productSchema = new mongoose.Schema({
     refractive_index: { type: String }
   },
 
-  // Array of strings for color variations
-  colors: [{
-    type: String
-  }],
-
   isLimitedProduct: {
       type: Boolean,
       default: true,
-  },
-
-  // Media Section
-  primary_imgSrc: {
-    type: String,
-    required: true
   },
   imgs_src: [{
     type: String
