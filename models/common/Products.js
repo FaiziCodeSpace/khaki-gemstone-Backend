@@ -40,8 +40,8 @@ const productSchema = new mongoose.Schema({
   },
 
   isLimitedProduct: {
-      type: Boolean,
-      default: true,
+    type: Boolean,
+    default: true,
   },
   imgs_src: [{
     type: String
@@ -52,9 +52,10 @@ const productSchema = new mongoose.Schema({
   certificate_img_src: {
     type: String
   },
+  isActive: { type: Boolean, default: true },
   tags: [{ type: String }]
 }, {
-  timestamps: true 
+  timestamps: true
 });
 
 const Product = mongoose.model('Product', productSchema);

@@ -50,17 +50,14 @@ const adminSchema = new mongoose.Schema(
 
 /* Hash password */
 adminSchema.pre("save", async function () {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password")) return;
   this.password = await bcrypt.hash(this.password, 10);
 });
 
 /* Ensure only one SUPER_ADMIN */
 adminSchema.pre("save", async function () {
   if (this.role === "SUPER_ADMIN") {
-    const existingSuperAdmin = await mongoose.models.Admin.findOne({
-      role: "SUPER_ADMIN"
-    });
-
+    const existingSuperAdmin = await mongoose.models.Admin.findOne({ role: "SUPER_ADMIN" });
     if (existingSuperAdmin && !existingSuperAdmin._id.equals(this._id)) {
       throw new Error("Only one Super Admin is allowed");
     }
