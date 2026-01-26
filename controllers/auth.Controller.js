@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import User from "../models/users/CommonUser.js";
+import User from "../models/users/User.js";
 import Cart from "../models/public/Cart.js";
+import Admin from "../models/users/Admin.js";
 import generateToken from "../utils/generateToken.js";
 import mongoose from "mongoose";
 
@@ -11,8 +12,8 @@ const mergeCarts = async (userId, guestCart) => {
 
   try {
     const productIds = guestCart
-      .map(item => (item && typeof item === "object" ? item._id : item))
-      .filter(id => mongoose.Types.ObjectId.isValid(id));
+      .map((item) => (item && typeof item === "object" ? item._id : item))
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
 
     if (productIds.length > 0) {
       await Cart.findOneAndUpdate(
@@ -32,16 +33,13 @@ export const register = async (req, res) => {
   try {
     const { firstName, lastName, email, password, guestCart, ...investorData } = req.body;
 
-    // 1. Check if user already exists
     let user = await User.findOne({ email });
 
     if (user) {
-      // Already an investor?
       if (user.isInvestor) {
         return res.status(400).json({ message: "This email is already registered as an investor." });
       }
 
-      // EXISTING COMMON USER -> Upgrade to Investor
       user.isInvestor = true;
       user.investor = {
         ...investorData,
@@ -49,13 +47,10 @@ export const register = async (req, res) => {
         appliedAt: new Date(),
       };
 
-      // Update names if empty
       user.firstName = firstName || user.firstName;
       user.lastName = lastName || user.lastName;
-
       await user.save();
     } else {
-      // BRAND NEW USER
       if (!password) return res.status(400).json({ message: "Password is required for new users" });
 
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -73,11 +68,10 @@ export const register = async (req, res) => {
       });
     }
 
-    // Merge cart items
     await mergeCarts(user._id, guestCart);
 
     res.status(201).json({
-      token: generateToken(user._id),
+      token: generateToken(user._id, "user"),
       user: {
         id: user._id,
         email: user.email,
@@ -103,7 +97,6 @@ export const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-    // Role check
     if (role === "investor") {
       if (!user.isInvestor) {
         return res.status(403).json({ message: "This account is not registered as an investor." });
@@ -119,11 +112,10 @@ export const login = async (req, res) => {
       }
     }
 
-    // Merge cart
     await mergeCarts(user._id, guestCart);
 
     res.status(200).json({
-      token: generateToken(user._id),
+      token: generateToken(user._id, user.isInvestor ? "investor" : "user"),
       user: {
         id: user._id,
         email: user.email,
@@ -141,10 +133,7 @@ export const login = async (req, res) => {
 // ================= APPLY INVESTOR =================
 export const applyInvestor = async (req, res) => {
   try {
-    const {
-      firstName, lastName, email, password,
-      phone, cnic, city, address, dob, gender,
-    } = req.body;
+    const { firstName, lastName, email, password, phone, cnic, city, address, dob, gender } = req.body;
 
     let user = await User.findOne({ email });
 
@@ -166,12 +155,7 @@ export const applyInvestor = async (req, res) => {
     }
 
     user.investor = {
-      phone,
-      cnic,
-      city,
-      address,
-      dob,
-      gender,
+      phone, cnic, city, address, dob, gender,
       status: "pending",
       appliedAt: new Date(),
     };
@@ -192,4 +176,84 @@ export const applyInvestor = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
+};
+
+// ================= ADMIN AUTH =================
+
+export const adminLogin = async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    const admin = await Admin.findOne({ phone }).select("+password");
+
+    if (!admin) return res.status(401).json({ message: "Admin not found" });
+    if (!admin.isActive) return res.status(403).json({ message: "Admin is deactivated" });
+
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+
+    admin.lastLoginAt = new Date();
+    await admin.save();
+
+    const token = generateToken(admin._id, admin.role);
+
+    res.json({
+      token,
+      admin: { name: admin.name, phone: admin.phone, role: admin.role, city: admin.city },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Admin login failed", error: error.message });
+  }
+};
+
+export const createAdmin = async (req, res) => {
+  try {
+    const { name, phone, city, password, role } = req.body;
+    
+    const newAdmin = await Admin.create({ 
+      name, 
+      phone, 
+      city, 
+      password, 
+      role 
+    });
+
+    const adminData = newAdmin.toObject();
+    delete adminData.password;
+
+    res.status(201).json({ 
+      message: "Admin created successfully", 
+      admin: adminData 
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "Phone number already registered to another admin" });
+    }
+    
+    res.status(400).json({ 
+      message: "Admin creation failed", 
+      error: error.message 
+    });
+  }
+};
+
+export const toggleAdminStatus = async (req, res) => {
+  const { adminId, isActive } = req.body;
+  const admin = await Admin.findById(adminId);
+  if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+  if (admin.role === "SUPER_ADMIN") return res.status(403).json({ message: "Cannot deactivate SUPER_ADMIN" });
+
+  admin.isActive = isActive;
+  await admin.save();
+  res.json({ message: "Admin status updated", admin });
+};
+
+export const assignCity = async (req, res) => {
+  const { adminId, city } = req.body;
+  const admin = await Admin.findById(adminId);
+  if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+  admin.city = city;
+  await admin.save();
+  res.json({ message: "City assigned", admin });
 };
