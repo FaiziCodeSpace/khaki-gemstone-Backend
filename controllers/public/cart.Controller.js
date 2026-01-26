@@ -10,7 +10,7 @@ export const getCart = async (req, res) => {
       return res.status(200).json({ items: [] });
     }
 
-    res.status(200).json({ items: cart.items }); 
+    res.status(200).json({ items: cart.items });
   } catch (error) {
     res.status(500).json({ message: "Error fetching cart", error: error.message });
   }
@@ -35,12 +35,12 @@ export const addToCart = async (req, res) => {
 
 export const removeFromCart = async (req, res) => {
   try {
-    const { productId } = req.params; 
+    const { productId } = req.params;
     const userId = req.user.id;
 
     const cart = await Cart.findOneAndUpdate(
       { userId },
-      { $pull: { items: productId } }, 
+      { $pull: { items: productId } },
       { new: true }
     ).populate("items");
 

@@ -1,6 +1,6 @@
 import User from "../models/users/User.js";
 import Order from "../models/common/Orders.js";
-import Product from "../models/common/Product.js";
+import Product from "../models/common/Products.js";
 import Investment from "../models/investment/Investments.js"
 
 export const getDashboardMetrics = async () => {

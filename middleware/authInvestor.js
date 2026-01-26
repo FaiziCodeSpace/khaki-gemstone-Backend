@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/users/CommonUser.js";
+import User from "../models/users/User.js";
 
 export const investorAuth = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1]; // Bearer token
