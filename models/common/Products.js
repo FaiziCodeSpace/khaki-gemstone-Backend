@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
+import { v4 as uuidv4 } from 'uuid';
 
 const productSchema = new mongoose.Schema({
   productNumber: {
     type: String,
-    required: true,
     unique: true,
-    trim: true
+    default: () => `GEM-${uuidv4().split('-')[0].toUpperCase()}`
   },
   name: {
     type: String,
@@ -38,7 +38,16 @@ const productSchema = new mongoose.Schema({
     treatment: { type: String },
     refractive_index: { type: String }
   },
-
+  profitMargin: {
+    type: Number,
+    min: 0,
+    default: null
+  },
+  portal: {
+    type: String,
+    enum: ["PUBLIC", "INVESTOR"],
+    index: true
+  },
   isLimitedProduct: {
     type: Boolean,
     default: true,
