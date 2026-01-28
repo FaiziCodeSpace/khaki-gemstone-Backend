@@ -118,7 +118,6 @@ const handleFileUploads = (files, pNum, productObj) => {
 
 export const createProduct = async (req, res) => {
     try {
-        // Safe parsing to prevent 500 errors if data is already an object
         const details = safeParse(req.body.details, "{}");
         const more_information = safeParse(req.body.more_information, "{}");
         const tags = safeParse(req.body.tags, "[]");
@@ -126,12 +125,12 @@ export const createProduct = async (req, res) => {
         const newProduct = new Product({
             ...req.body,
             price: Number(req.body.price) || 0,
-            profitMargin: Number(req.body.profitMargin) || 0, // Match your new Schema
-            portal: req.body.portal?.toUpperCase(), // Ensure it matches ENUM "PUBLIC" or "INVESTOR"
+            profitMargin: Number(req.body.profitMargin) || 0, 
+            portal: req.body.portal?.toUpperCase(), 
             details,
-            more_information: { 
-                ...more_information, 
-                weight: Number(more_information.weight) || 0 
+            more_information: {
+                ...more_information,
+                weight: Number(more_information.weight) || 0
             },
             tags,
             imgs_src: []
@@ -144,7 +143,7 @@ export const createProduct = async (req, res) => {
         const savedProduct = await newProduct.save();
         res.status(201).json(savedProduct);
     } catch (error) {
-        console.error("CREATE ERROR:", error); // This helps you see the REAL error in your terminal
+        console.error("CREATE ERROR:", error); 
         res.status(500).json({ error: error.message });
     }
 };
@@ -155,13 +154,33 @@ export const updateProduct = async (req, res) => {
         const product = await Product.findById(id);
         if (!product) return res.status(404).json({ message: "Product not found" });
 
-        const updateData = { ...req.body };
-        if (req.body.details) updateData.details = JSON.parse(req.body.details);
-        if (req.body.more_information) updateData.more_information = JSON.parse(req.body.more_information);
-        if (req.body.tags) updateData.tags = JSON.parse(req.body.tags);
-        if (req.body.price) updateData.price = Number(req.body.price);
+        // 1. Use safeParse to match createProduct logic
+        const updateData = {
+            ...req.body,
+            // Ensure portal is uppercase if provided
+            ...(req.body.portal && { portal: req.body.portal.toUpperCase() })
+        };
 
+        if (req.body.details) updateData.details = safeParse(req.body.details, "{}");
+
+        if (req.body.more_information) {
+            const moreInfo = safeParse(req.body.more_information, "{}");
+            updateData.more_information = {
+                ...moreInfo,
+                // Consistency fix: cast weight to number just like in create
+                weight: Number(moreInfo.weight) || 0
+            };
+        }
+
+        if (req.body.tags) updateData.tags = safeParse(req.body.tags, "[]");
+
+        // 2. Consistency fix: ensure numeric types
+        if (req.body.price) updateData.price = Number(req.body.price);
+        if (req.body.profitMargin) updateData.profitMargin = Number(req.body.profitMargin);
+
+        // 3. Handle Files
         if (req.files && Object.keys(req.files).length > 0) {
+            // Note: handleFileUploads modifies the 'product' object by reference
             handleFileUploads(req.files, product.productNumber, product);
             updateData.imgs_src = product.imgs_src;
             updateData.lab_test_img_src = product.lab_test_img_src;
@@ -171,6 +190,7 @@ export const updateProduct = async (req, res) => {
         const updated = await Product.findByIdAndUpdate(id, updateData, { new: true });
         res.status(200).json(updated);
     } catch (error) {
+        console.error("UPDATE ERROR:", error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -179,17 +199,13 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedProduct = await Product.findByIdAndUpdate(
-            id,
-            { isActive: false },
-            { new: true }
-        );
+        const deletedProduct = await Product.findByIdAndDelete(id);
 
         if (!deletedProduct) {
             return res.status(404).json({ message: "Product not found" });
         }
 
-        res.status(200).json({ message: "Product deactivated successfully" });
+        res.status(200).json({ message: "Product Deleted successfully" });
     } catch (error) {
         res.status(500).json({ message: "Delete failed", error: error.message });
     }

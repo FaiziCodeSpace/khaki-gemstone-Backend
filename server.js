@@ -36,20 +36,23 @@ app.get('/', (req, res) => {
     res.send('Hello World!');
 })
 
-// Auth
+// --- AUTH & ADMIN ---
 app.use("/api/auth", authRoute);
-app.use("/api/admin", adminRoute);
-// PRODUCT ROUTES
+
+// If adminRoute has protection inside it, it only affects /api/admin/... routes 
+// defined INSIDE that file.
+app.use("/api/admin", adminRoute); 
+
+// --- DASHBOARD (Public for now) ---
+// Mounting this at /api ensures it picks up the /admin/dashboardMatrics 
+// defined in your dashboardRoute file.
+app.use("/api/admin", dashboardRoute);
+
+// --- PRODUCT & OTHER ROUTES ---
 app.use("/api", productRoute);
-// Cart
 app.use("/api", cartFavRoute);
-app.use("/api", cartFavRoute);
-// Event
-app.use('/api', eventRoute)
-// Orders
-app.use("/api", orderRoute)
-// Admin
-app.use("/api", dashboardRoute);
+app.use("/api", eventRoute);
+app.use("/api", orderRoute);
 
 
 // Listening 
