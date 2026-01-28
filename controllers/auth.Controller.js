@@ -178,7 +178,36 @@ export const applyInvestor = async (req, res) => {
   }
 };
 
-// ================= ADMIN AUTH =================
+// ============= VERIFY INVESTOR ================ 
+ 
+// export const verifyInvestor(){
+
+// }
+
+// ============= GET USERS =================
+
+export const getUsers = async (req, res) => {
+  try {
+    const { role } = req.query; 
+    let query = {};
+
+    if (role === "investor") {
+      query.isInvestor = true;
+      query["investor.status"] = "pending";
+    } else if (role === "user") {
+      query.isInvestor = false;
+    }
+
+    const users = await User.find(query).sort({ createdAt: -1 });
+    
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+};
+
+
+// =============== ADMIN AUTH ===================
 
 export const adminLogin = async (req, res) => {
   try {

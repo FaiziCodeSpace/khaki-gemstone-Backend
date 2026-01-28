@@ -23,7 +23,6 @@ const productSchema = new mongoose.Schema({
   },
   gem_size: {
     type: String,
-    required: true
   },
   details: {
     gemstone: { type: String, required: true },
@@ -47,6 +46,11 @@ const productSchema = new mongoose.Schema({
     type: String,
     enum: ["PUBLIC", "INVESTOR"],
     index: true
+  },
+  location: {
+    type: String,
+    trim: true,
+    required: true
   },
   isLimitedProduct: {
     type: Boolean,
