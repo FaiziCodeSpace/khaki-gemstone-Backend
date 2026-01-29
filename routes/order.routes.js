@@ -9,8 +9,8 @@ import {protectAdmin} from "../middleware/admin.middleware.js"
 const router = express.Router();
 
 router.post("/bookOrder", orderBook);
+
 router.get("/orders", getOrders);
-router.get("/orders", getOrders);
-router.patch("/updateOrder/:id/status", updateOrderStatus);
+router.patch("/admin/updateOrder/:id/status", updateOrderStatus);
 
 export default router;

@@ -4,7 +4,8 @@ import {
   createAdmin, 
   toggleAdminStatus, 
   assignCity, 
-  getUsers
+  getUsers,
+  updateInvestorStatus
 } from "../controllers/auth.Controller.js";
 import { protectAdmin, superAdminOnly } from "../middleware/admin.middleware.js";
 
@@ -21,7 +22,11 @@ router.post("/create", superAdminOnly, createAdmin);
 router.patch("/toggle-status", superAdminOnly, toggleAdminStatus);
 router.patch("/assign-city", superAdminOnly, assignCity);
 
-// Get User
+// Get User & Investor
 router.get("/getUsers", getUsers);
+// Approve Investors Applications
+router.post("/update-investor-status", updateInvestorStatus)
+
+
 
 export default router;
