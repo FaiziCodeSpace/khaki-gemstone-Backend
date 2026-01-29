@@ -38,7 +38,8 @@ export const getDashboardMetrics = async () => {
   /* ================= APPLICATIONS ================= */
 
   const pendingApplications = await User.countDocuments({
-    "investor.status": "pending"
+    "investor.status": "pending",
+    "isInvestor": true
   });
 
   /* ================= PRODUCTS ================= */
@@ -47,12 +48,14 @@ export const getDashboardMetrics = async () => {
 
   /* ================= ORDERS ================= */
 
-  const totalOrders = await Order.countDocuments();
+  const totalOrders = await Order.countDocuments({ status: { $ne: "CANCELLED" } });
 
+  // 2. New Orders in last 24h
   const newOrders = await Order.countDocuments({
     createdAt: { $gte: last24h }
   });
 
+  // 3. "On Way" - Dispatched but not yet finished
   const dispatchedOrders = await Order.countDocuments({
     status: "DISPATCHED"
   });
@@ -60,7 +63,8 @@ export const getDashboardMetrics = async () => {
   const ordersRevenueAgg = await Order.aggregate([
     {
       $match: {
-        status: { $in: ["PAID", "DISPATCHED", "COMPLETED"] }
+        isPaid: true,
+        status: { $ne: "CANCELLED" }
       }
     },
     {
@@ -75,27 +79,21 @@ export const getDashboardMetrics = async () => {
 
   const customersAgg = await Order.aggregate([
     {
-      $project: {
-        buyerKey: {
+      $group: {
+        _id: {
           $cond: [
-            { $ifNull: ["$user", false] },
-            { $toString: "$user" },
+            { $gt: ["$user", null] },
+            "$user",
             "$customer.phone"
           ]
         }
       }
     },
-    {
-      $group: {
-        _id: "$buyerKey"
-      }
-    },
-    {
-      $count: "total"
-    }
+    { $count: "total" }
   ]);
 
   const customers = customersAgg[0]?.total || 0;
+
 
   /* ================= INVESTMENTS ================= */
 

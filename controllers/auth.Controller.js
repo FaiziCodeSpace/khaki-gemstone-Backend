@@ -5,6 +5,9 @@ import Cart from "../models/public/Cart.js";
 import Admin from "../models/users/Admin.js";
 import generateToken from "../utils/generateToken.js";
 import mongoose from "mongoose";
+import { sendInvestorApprovedEmail } from "../utils/mailer.js";
+import dotenv from 'dotenv';
+dotenv.config();
 
 // ================= MERGE CART =================
 const mergeCarts = async (userId, guestCart) => {
@@ -179,16 +182,67 @@ export const applyInvestor = async (req, res) => {
 };
 
 // ============= VERIFY INVESTOR ================ 
- 
-// export const verifyInvestor(){
+export const updateInvestorStatus = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const { id } = req.body;
 
-// }
+    if (!id) {
+      return res.status(400).json({ message: "Please select the application" });
+    }
+
+    if (!["approve", "decline"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status action" });
+    }
+
+    const updateData =
+      status === "approve"
+        ? {
+            "investor.status": "approved",
+            "investor.approvedAt": new Date(),
+            isInvestor: true,
+          }
+        : {
+            "investor.status": "rejected",
+            "investor.rejectedAt": new Date(),
+            isInvestor: false,
+          };
+
+    const user = await User.findOneAndUpdate(
+      { _id: id, "investor.status": "pending" },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "Investor application not found or already processed",
+      });
+    }
+
+    // 📧 Send approval email
+    if (status === "approve") {
+      await sendInvestorApprovedEmail({
+        to: user.email,
+        firstName: user.firstName,
+      });
+    }
+
+    return res.status(200).json({
+      message: `Investor application ${status}d successfully`,
+      data: user,
+    });
+  } catch (error) {
+    console.error("Update Investor Status Error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
 // ============= GET USERS =================
 
 export const getUsers = async (req, res) => {
   try {
-    const { role } = req.query; 
+    const { role } = req.query;
     let query = {};
 
     if (role === "investor") {
@@ -199,7 +253,7 @@ export const getUsers = async (req, res) => {
     }
 
     const users = await User.find(query).sort({ createdAt: -1 });
-    
+
     res.status(200).json(users);
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
@@ -237,30 +291,30 @@ export const adminLogin = async (req, res) => {
 export const createAdmin = async (req, res) => {
   try {
     const { name, phone, city, password, role } = req.body;
-    
-    const newAdmin = await Admin.create({ 
-      name, 
-      phone, 
-      city, 
-      password, 
-      role 
+
+    const newAdmin = await Admin.create({
+      name,
+      phone,
+      city,
+      password,
+      role
     });
 
     const adminData = newAdmin.toObject();
     delete adminData.password;
 
-    res.status(201).json({ 
-      message: "Admin created successfully", 
-      admin: adminData 
+    res.status(201).json({
+      message: "Admin created successfully",
+      admin: adminData
     });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({ message: "Phone number already registered to another admin" });
     }
-    
-    res.status(400).json({ 
-      message: "Admin creation failed", 
-      error: error.message 
+
+    res.status(400).json({
+      message: "Admin creation failed",
+      error: error.message
     });
   }
 };

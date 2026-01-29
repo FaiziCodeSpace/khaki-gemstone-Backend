@@ -1,55 +1,59 @@
+import mongoose from "mongoose";
+import { v4 as uuidv4 } from 'uuid';
 import Order from "../../models/common/Orders.js";
 import Product from "../../models/common/Products.js";
+
+const DELIVERY_FEE = 250;
+
 export const orderBook = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
+    session.startTransaction();
     const { customer, shippingAddress, items, paymentMethod } = req.body;
 
-    if (!items || items.length === 0) {
-      return res.status(400).json({ message: "No items in order" });
-    }
+    const validatedItems = [];
+    let productsSum = 0; // Separate sum for products
 
-    // 1. Extract IDs to check availability
-    const productIds = items.map(item => item.product);
-
-    // 2. Find these products in the DB
-    const foundProducts = await Product.find({
-      _id: { $in: productIds }
-    });
-
-    // 3. Validation: Check if all products exist and are active
     for (const item of items) {
-      const dbProduct = foundProducts.find(p => p._id.toString() === item.product.toString());
+      const product = await Product.findOneAndUpdate(
+        { _id: item.product, isActive: true },
+        { isActive: false },
+        { new: true, session }
+      );
 
-      if (!dbProduct) {
-        return res.status(404).json({ message: `Product ${item.product} not found.` });
-      }
+      if (!product) throw new Error("One or more items are unavailable");
 
-      if (!dbProduct.isActive) {
-        return res.status(400).json({ 
-          message: `The item "${dbProduct.name}" is no longer available.` 
-        });
-      }
+      productsSum += product.price;
+      validatedItems.push({ product: product._id, price: product.price });
     }
 
-    // 4. Proceed with order creation if all checks pass
-    const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const totalAmount = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const orderNumber = `ORD-${uuidv4().split("-")[0].toUpperCase()}`;
 
-    const newOrder = new Order({
-      orderNumber,
-      user: req.user ? req.user._id : null,
-      customer,
-      shippingAddress,
-      items,
-      totalAmount,
-      paymentMethod
-    });
+    const order = await Order.create(
+      [
+        {
+          orderNumber,
+          user: req.user ? req.user._id : null,
+          customer,
+          shippingAddress,
+          items: validatedItems,
+          // ✅ FIX: Add Delivery Fee to the total stored in DB
+          totalAmount: productsSum + DELIVERY_FEE,
+          totalQuantity: validatedItems.length,
+          paymentMethod,
+          status: "PENDING"
+        }
+      ],
+      { session }
+    );
 
-    const savedOrder = await newOrder.save();
-    res.status(201).json(savedOrder);
-
+    await session.commitTransaction();
+    res.status(201).json(order[0]);
   } catch (error) {
+    await session.abortTransaction();
     res.status(500).json({ message: "Order creation failed", error: error.message });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -59,12 +63,12 @@ export const getOrders = async (req, res) => {
 
     const filter = {};
     if (status) filter.status = status;
-    
-    if (req.user.role !== 'admin') filter.user = req.user._id;
+
+    // if (req.user.role !== 'admin') filter.user = req.user._id;
 
     const orders = await Order.find(filter)
-      .populate("user", "name email") 
-      .populate("items.product", "name image") 
+      .populate("user", "name email")
+      .populate("items.product", "name image")
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -84,38 +88,46 @@ export const getOrders = async (req, res) => {
 
 export const updateOrderStatus = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, isPaid } = req.body; 
 
   try {
     const order = await Order.findById(id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
 
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+    // Handle Payment Toggle
+    if (typeof isPaid !== 'undefined') {
+      order.isPaid = isPaid;
+      order.paidAt = isPaid ? Date.now() : null;
     }
 
-    if (status === "PAID") {
-      order.isPaid = true;
-      order.paidAt = Date.now();
-      
-      const productIds = order.items.map(item => item.product);
-      await Product.updateMany(
-        { _id: { $in: productIds } },
-        { $set: { isActive: false } }
-      );
+    // Handle Status Transitions
+    if (status && order.status !== status) {
+      const validTransitions = {
+        PENDING: ["PAID", "DISPATCHED", "CANCELLED"],
+        PAID: ["DISPATCHED", "CANCELLED"],
+        DISPATCHED: ["DELIVERED"],
+        DELIVERED: [],
+        CANCELLED: []
+      };
+
+      const allowed = validTransitions[order.status];
+      if (allowed && allowed.includes(status)) {
+        order.status = status;
+        
+        if (status === "DISPATCHED") order.dispatchedAt = Date.now();
+        if (status === "DELIVERED") {
+          order.deliveredAt = Date.now();
+          // Logic: If COD and delivered, it's usually paid now
+          if (order.paymentMethod === "COD") {
+            order.isPaid = true;
+            order.paidAt = Date.now();
+          }
+        }
+      }
     }
 
-    if (status === "DISPATCHED") {
-      order.dispatchedAt = Date.now();
-    }
-
-    if (status === "DELIVERED") {
-      order.deliveredAt = Date.now();
-    }
-
-    order.status = status;
-    const updatedOrder = await order.save();
-
-    res.status(200).json(updatedOrder);
+    await order.save();
+    res.status(200).json(order);
   } catch (error) {
     res.status(500).json({ message: "Update failed", error: error.message });
   }
