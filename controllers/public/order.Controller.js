@@ -125,7 +125,7 @@ export const updateOrderStatus = async (req, res) => {
         }
       }
     }
-
+    order.isUpdated = true;
     await order.save();
     res.status(200).json(order);
   } catch (error) {

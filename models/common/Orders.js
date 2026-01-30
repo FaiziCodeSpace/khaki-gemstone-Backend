@@ -45,6 +45,10 @@ const orderSchema = new mongoose.Schema(
       enum: ["COD", "CARD", "BANK"],
       default: "COD"
     },
+    isUpdated: {
+      type: Boolean,
+      default: false
+    },
     isPaid: {
       type: Boolean,
       default: false

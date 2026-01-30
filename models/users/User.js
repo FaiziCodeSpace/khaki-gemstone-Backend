@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const investorSchema = new mongoose.Schema(
   {
+    investorId: {
+      type: String,
+      unique: true,
+      default: () => `INV-${Math.floor(10000 + Math.random() * 90000)}`
+    },
     phone: String,
     cnic: String,
     city: String,
@@ -45,6 +50,7 @@ const userSchema = new mongoose.Schema(
     isInvestor: { type: Boolean, default: false },
     investor: investorSchema,
     isActive: { type: Boolean, default: true },
+    lastInvestorVisitAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
