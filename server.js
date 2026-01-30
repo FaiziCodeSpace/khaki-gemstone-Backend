@@ -12,6 +12,7 @@ import eventRoute from "./routes/event.routes.js";
 import adminRoute from "./routes/admin.routes.js";
 import dashboardRoute from "./routes/dashboardMatrics.routes.js";
 import orderRoute from "./routes/order.routes.js";
+import transactionRoute from "./routes/transactionsLog.routes.js";
 
 // CONFIGURATION 
 dotenv.config();
@@ -42,7 +43,8 @@ app.use("/api/auth", authRoute);
 // If adminRoute has protection inside it, it only affects /api/admin/... routes 
 // defined INSIDE that file.
 app.use("/api/admin", adminRoute); 
-
+// TransactionsLog
+app.use("/api/transactions", transactionRoute);
 // --- DASHBOARD (Public for now) ---
 // Mounting this at /api ensures it picks up the /admin/dashboardMatrics 
 // defined in your dashboardRoute file.
