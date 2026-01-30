@@ -104,7 +104,8 @@ export const login = async (req, res) => {
       if (!user.isInvestor) {
         return res.status(403).json({ message: "This account is not registered as an investor." });
       }
-
+      user.lastInvestorVisitAt = new Date();
+      await user.save();
       if (user.investor?.status !== "approved") {
         const status = user.investor?.status || "pending";
         const messages = {
@@ -116,6 +117,7 @@ export const login = async (req, res) => {
     }
 
     await mergeCarts(user._id, guestCart);
+
 
     res.status(200).json({
       token: generateToken(user._id, user.isInvestor ? "investor" : "user"),
@@ -198,15 +200,15 @@ export const updateInvestorStatus = async (req, res) => {
     const updateData =
       status === "approve"
         ? {
-            "investor.status": "approved",
-            "investor.approvedAt": new Date(),
-            isInvestor: true,
-          }
+          "investor.status": "approved",
+          "investor.approvedAt": new Date(),
+          isInvestor: true,
+        }
         : {
-            "investor.status": "rejected",
-            "investor.rejectedAt": new Date(),
-            isInvestor: false,
-          };
+          "investor.status": "rejected",
+          "investor.rejectedAt": new Date(),
+          isInvestor: false,
+        };
 
     const user = await User.findOneAndUpdate(
       { _id: id, "investor.status": "pending" },
@@ -243,11 +245,12 @@ export const updateInvestorStatus = async (req, res) => {
 export const getUsers = async (req, res) => {
   try {
     const { role } = req.query;
+    const { status } = req.query; 
     let query = {};
 
     if (role === "investor") {
       query.isInvestor = true;
-      query["investor.status"] = "pending";
+      query["investor.status"] = status || "pending";
     } else if (role === "user") {
       query.isInvestor = false;
     }

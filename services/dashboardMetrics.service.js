@@ -51,9 +51,10 @@ export const getDashboardMetrics = async () => {
   const totalOrders = await Order.countDocuments({ status: { $ne: "CANCELLED" } });
 
   // 2. New Orders in last 24h
-  const newOrders = await Order.countDocuments({
-    createdAt: { $gte: last24h }
-  });
+const newOrders = await Order.countDocuments({
+  createdAt: { $gte: last24h },
+  $expr: { $eq: ["$createdAt", "$updatedAt"] }
+});
 
   // 3. "On Way" - Dispatched but not yet finished
   const dispatchedOrders = await Order.countDocuments({
@@ -94,6 +95,10 @@ export const getDashboardMetrics = async () => {
 
   const customers = customersAgg[0]?.total || 0;
 
+
+  /* ================= INVESTORS ================= */
+
+  
 
   /* ================= INVESTMENTS ================= */
 
