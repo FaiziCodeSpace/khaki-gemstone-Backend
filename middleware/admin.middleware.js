@@ -7,7 +7,8 @@ export const protectAdmin = async (req, res, next) => {
 
     if (!token) return res.status(401).json({ message: "Not authorized, no token" });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // FIX: Must use ACCESS_TOKEN_SECRET to match generateAccessAndRefreshTokens
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
     // Verify role from token payload
     if (!["ADMIN", "SUPER_ADMIN"].includes(decoded.role)) {
@@ -22,11 +23,11 @@ export const protectAdmin = async (req, res, next) => {
     req.admin = admin;
     next();
   } catch (error) {
+    // If token is expired, this sends the 401 that triggers the frontend interceptor
     res.status(401).json({ message: "Token failed", error: error.message });
   }
 };
 
-// Middleware to restrict certain actions to SUPER_ADMIN only
 export const superAdminOnly = (req, res, next) => {
   if (req.admin && req.admin.role === "SUPER_ADMIN") {
     next();

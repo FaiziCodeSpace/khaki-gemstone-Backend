@@ -8,4 +8,21 @@ const generateToken = (id, role = "user") => {
   );
 };
 
+export const generateAccessAndRefreshTokens = (adminId, role) => {
+  const accessToken = jwt.sign(
+    { id: adminId, role }, 
+    process.env.ACCESS_TOKEN_SECRET, 
+    { expiresIn: '15m' }
+  );
+
+  const refreshToken = jwt.sign(
+    { id: adminId }, 
+    process.env.REFRESH_TOKEN_SECRET, 
+    { expiresIn: '7d' }
+  );
+
+  return { accessToken, refreshToken };
+};
+
+
 export default generateToken;

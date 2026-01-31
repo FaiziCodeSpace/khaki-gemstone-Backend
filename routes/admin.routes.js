@@ -1,6 +1,8 @@
 import express from "express";
 import { 
   adminLogin, 
+  adminLogout, 
+  refreshAccessToken,
   createAdmin, 
   editAdmin, 
   getUsers,
@@ -10,22 +12,19 @@ import { protectAdmin, superAdminOnly } from "../middleware/admin.middleware.js"
 
 const router = express.Router();
 
-// Public login
+// --- Public Routes ---
 router.post("/login", adminLogin);
+router.post("/refresh-token", refreshAccessToken);
+router.post("/logout", adminLogout); 
 
-// Secure all management routes
-// router.use(protectAdmin); 
+// --- Protected Routes (Any Admin) ---
+router.use(protectAdmin);
 
-// Super Admin Only Actions
-router.post("/create", createAdmin); 
-router.post("/editAdmin/:id", editAdmin);
-// Get User & Investor
 router.get("/getUsers", getUsers);
-// Approve Investors Applications
 router.post("/update-investor-status", updateInvestorStatus);
 
-
+// --- Super Admin Only Routes ---
+router.post("/create", superAdminOnly, createAdmin); 
+router.post("/editAdmin/:id", superAdminOnly, editAdmin);
 
 export default router;
-
-
