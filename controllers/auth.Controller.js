@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import User from "../models/users/User.js";
 import Cart from "../models/public/Cart.js";
 import Admin from "../models/users/Admin.js";
-import generateToken from "../utils/generateToken.js";
+import generateToken, { generateAccessAndRefreshTokens } from "../utils/generateToken.js";
 import mongoose from "mongoose";
 import { sendInvestorApprovedEmail } from "../utils/mailer.js";
 import dotenv from 'dotenv';
@@ -303,38 +303,82 @@ export const adminLogin = async (req, res) => {
   try {
     const { phone, password } = req.body;
 
-    // 1. Find admin and explicitly select password
+    // 1. Find admin
     const admin = await Admin.findOne({ phone }).select("+password");
-    if (!admin) {
-      return res.status(401).json({ message: "Invalid credentials" });
+    if (!admin || !admin.isActive) {
+      return res.status(401).json({
+        message: admin ? "Account suspended" : "Invalid credentials"
+      });
     }
 
-    if (!admin.isActive) {
-      return res.status(403).json({ message: "Account is suspended. Contact Super Admin." });
-    }
-
+    // 2. Check password
     const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-    admin.lastLoginAt = new Date();
-    await admin.save();
+    // 3. Generate tokens (Ensure ACCESS_TOKEN_SECRET & REFRESH_TOKEN_SECRET are in .env)
+    const { accessToken, refreshToken } = generateAccessAndRefreshTokens(admin._id, admin.role);
 
-    const token = generateToken(admin._id, admin.role);
+    // 4. Update last login WITHOUT triggering pre-save hooks
+    await Admin.findByIdAndUpdate(admin._id, { lastLoginAt: new Date() });
+
+    // 5. Set Cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', 
+      sameSite: 'Lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
 
     res.status(200).json({
       success: true,
-      token,
+      accessToken,
       admin: { id: admin._id, name: admin.name, role: admin.role }
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error during login" });
+    console.error("LOGIN_ERROR:", error); // <--- LOG THIS TO SEE THE ACTUAL ERROR IN TERMINAL
+    res.status(500).json({ message: "Server error during login", error: error.message });
+  }
+}; 
+
+// Refresh Access Token
+export const refreshAccessToken = async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) return res.status(401).json({ message: "Not authenticated" });
+
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    const admin = await Admin.findById(decoded.id);
+
+    if (!admin || !admin.isActive) return res.status(403).json({ message: "Invalid session" });
+
+    const accessToken = jwt.sign(
+      { id: admin._id, role: admin.role },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    // CRITICAL: Return the admin object here too so the frontend state populates on refresh
+    res.status(200).json({
+      accessToken,
+      admin: { id: admin._id, name: admin.name, role: admin.role }
+    });
+  } catch (error) {
+    res.status(403).json({ message: "Refresh token expired or invalid" });
   }
 };
 
-// --- PRODUCTION CREATE ---
+export const adminLogout = (req, res) => {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: false,      // Change to false for localhost HTTP
+    sameSite: 'Lax',    // Use Lax for localhost
+  });
+  res.status(200).json({ message: "Logged out successfully" });
+};
 
+// ================== ADMIN MANAGEMENT ==================
+
+// Create Admin 
 export const createAdmin = async (req, res) => {
   try {
     const { name, phone, city, password, role } = req.body;
@@ -381,3 +425,4 @@ export const editAdmin = async (req, res) => {
     res.status(500).json({ message: "Update failed" });
   }
 };
+

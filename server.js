@@ -1,6 +1,7 @@
 // Packages
 import express from 'express';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import cors from "cors";
 import path from 'path';
 // Files 
@@ -29,6 +30,7 @@ app.use(cors({
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 
 // CONNECT DATABASE
 connectDB();
