@@ -244,22 +244,55 @@ export const updateInvestorStatus = async (req, res) => {
 
 export const getUsers = async (req, res) => {
   try {
-    const { role } = req.query;
-    const { status } = req.query; 
+    const { role, status, page = 1, limit = 10 } = req.query;
     let query = {};
 
-    if (role === "investor") {
-      query.isInvestor = true;
-      query["investor.status"] = status || "pending";
-    } else if (role === "user") {
-      query.isInvestor = false;
+    // 1. Determine which Model to use
+    let SelectedModel = User; // Default to User model
+
+    switch (role) {
+      case "admin":
+        SelectedModel = Admin;
+        query.role = { $regex: /^admin$/i };
+        break;
+      case "investor":
+        query.isInvestor = true;
+        if (status) query["investor.status"] = status;
+        break;
+
+      case "user":
+        query.isInvestor = false;
+        query.role = { $ne: "admin" };
+        break;
+
+      default:
+        query.role = { $ne: "admin" };
     }
 
-    const users = await User.find(query).sort({ createdAt: -1 });
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    res.status(200).json(users);
+    // 2. Execute Query on the Selected Model
+    const users = await SelectedModel.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .select("-password");
+
+    const total = await SelectedModel.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      data: users,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server Error", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch data",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -269,77 +302,82 @@ export const getUsers = async (req, res) => {
 export const adminLogin = async (req, res) => {
   try {
     const { phone, password } = req.body;
-    const admin = await Admin.findOne({ phone }).select("+password");
 
-    if (!admin) return res.status(401).json({ message: "Admin not found" });
-    if (!admin.isActive) return res.status(403).json({ message: "Admin is deactivated" });
+    // 1. Find admin and explicitly select password
+    const admin = await Admin.findOne({ phone }).select("+password");
+    if (!admin) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    if (!admin.isActive) {
+      return res.status(403).json({ message: "Account is suspended. Contact Super Admin." });
+    }
 
     const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
     admin.lastLoginAt = new Date();
     await admin.save();
 
     const token = generateToken(admin._id, admin.role);
 
-    res.json({
+    res.status(200).json({
+      success: true,
       token,
-      admin: { name: admin.name, phone: admin.phone, role: admin.role, city: admin.city },
+      admin: { id: admin._id, name: admin.name, role: admin.role }
     });
   } catch (error) {
-    res.status(500).json({ message: "Admin login failed", error: error.message });
+    res.status(500).json({ message: "Server error during login" });
   }
 };
+
+// --- PRODUCTION CREATE ---
 
 export const createAdmin = async (req, res) => {
   try {
     const { name, phone, city, password, role } = req.body;
 
-    const newAdmin = await Admin.create({
-      name,
-      phone,
-      city,
-      password,
-      role
-    });
+    const newAdmin = await Admin.create({ name, phone, city, password, role });
 
-    const adminData = newAdmin.toObject();
-    delete adminData.password;
+    const adminResponse = newAdmin.toObject();
+    delete adminResponse.password;
 
-    res.status(201).json({
-      message: "Admin created successfully",
-      admin: adminData
-    });
+    res.status(201).json({ success: true, admin: adminResponse });
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({ message: "Phone number already registered to another admin" });
+      return res.status(409).json({ message: "Phone number already in use" });
     }
-
-    res.status(400).json({
-      message: "Admin creation failed",
-      error: error.message
-    });
+    res.status(400).json({ message: error.message });
   }
 };
 
-export const toggleAdminStatus = async (req, res) => {
-  const { adminId, isActive } = req.body;
-  const admin = await Admin.findById(adminId);
-  if (!admin) return res.status(404).json({ message: "Admin not found" });
+// --- PRODUCTION EDIT ---
+export const editAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
 
-  if (admin.role === "SUPER_ADMIN") return res.status(403).json({ message: "Cannot deactivate SUPER_ADMIN" });
+    const allowedUpdates = ['name', 'phone', 'city', 'role', 'isActive', 'password'];
 
-  admin.isActive = isActive;
-  await admin.save();
-  res.json({ message: "Admin status updated", admin });
-};
+    const admin = await Admin.findById(id);
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
 
-export const assignCity = async (req, res) => {
-  const { adminId, city } = req.body;
-  const admin = await Admin.findById(adminId);
-  if (!admin) return res.status(404).json({ message: "Admin not found" });
+    allowedUpdates.forEach((update) => {
+      if (updates[update] !== undefined) {
+        admin[update] = updates[update];
+      }
+    });
 
-  admin.city = city;
-  await admin.save();
-  res.json({ message: "City assigned", admin });
+    await admin.save();
+
+    const adminData = admin.toObject();
+    delete adminData.password;
+
+    res.json({ success: true, admin: adminData });
+  } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: "Phone already exists" });
+    res.status(500).json({ message: "Update failed" });
+  }
 };

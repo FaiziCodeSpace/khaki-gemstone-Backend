@@ -2,8 +2,7 @@ import express from "express";
 import { 
   adminLogin, 
   createAdmin, 
-  toggleAdminStatus, 
-  assignCity, 
+  editAdmin, 
   getUsers,
   updateInvestorStatus
 } from "../controllers/auth.Controller.js";
@@ -18,15 +17,15 @@ router.post("/login", adminLogin);
 // router.use(protectAdmin); 
 
 // Super Admin Only Actions
-router.post("/create", superAdminOnly, createAdmin);
-router.patch("/toggle-status", superAdminOnly, toggleAdminStatus);
-router.patch("/assign-city", superAdminOnly, assignCity);
-
+router.post("/create", createAdmin); 
+router.post("/editAdmin/:id", editAdmin);
 // Get User & Investor
 router.get("/getUsers", getUsers);
 // Approve Investors Applications
-router.post("/update-investor-status", updateInvestorStatus)
+router.post("/update-investor-status", updateInvestorStatus);
 
 
 
 export default router;
+
+
