@@ -17,14 +17,12 @@ router.post("/login", adminLogin);
 router.post("/refresh-token", refreshAccessToken);
 router.post("/logout", adminLogout); 
 
-// --- Protected Routes (Any Admin) ---
-router.use(protectAdmin);
-
-router.get("/getUsers", getUsers);
-router.post("/update-investor-status", updateInvestorStatus);
+// --- Protected Routes ---
+router.get("/getUsers", protectAdmin, getUsers);
+router.post("/update-investor-status", protectAdmin, superAdminOnly, updateInvestorStatus);
 
 // --- Super Admin Only Routes ---
-router.post("/create", superAdminOnly, createAdmin); 
-router.post("/editAdmin/:id", superAdminOnly, editAdmin);
+router.post("/create", protectAdmin, superAdminOnly, createAdmin); 
+router.post("/editAdmin/:id", protectAdmin, superAdminOnly, editAdmin);
 
 export default router;

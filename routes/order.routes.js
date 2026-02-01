@@ -4,13 +4,13 @@ import {
   getOrders, 
   updateOrderStatus 
 } from "../controllers/public/order.Controller.js";
-import {protectAdmin} from "../middleware/admin.middleware.js"
+import { protectAdmin } from "../middleware/admin.middleware.js"
 
 const router = express.Router();
 
 router.post("/bookOrder", orderBook);
 
-router.get("/orders", getOrders);
-router.patch("/admin/updateOrder/:id/status", updateOrderStatus);
+router.get("/orders", protectAdmin, getOrders);
+router.patch("/admin/updateOrder/:id/status", protectAdmin, updateOrderStatus);
 
 export default router;

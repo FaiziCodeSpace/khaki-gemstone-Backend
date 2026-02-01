@@ -41,13 +41,12 @@ app.get('/', (req, res) => {
 
 // --- AUTH & ADMIN ---
 app.use("/api/auth", authRoute);
-
-// If adminRoute has protection inside it, it only affects /api/admin/... routes 
+// --- DASHBOARD (Public for now) ---
+app.use("/api/admin", dashboardRoute);
+// 
 app.use("/api/admin", adminRoute); 
 // TransactionsLog
 app.use("/api/transactions", transactionRoute);
-// --- DASHBOARD (Public for now) ---
-app.use("/api/admin", dashboardRoute);
 
 // --- PRODUCT & OTHER ROUTES ---
 app.use("/api", productRoute);
