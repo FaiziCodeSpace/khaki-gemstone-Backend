@@ -241,7 +241,6 @@ export const updateInvestorStatus = async (req, res) => {
 };
 
 // ============= GET USERS =================
-
 export const getUsers = async (req, res) => {
   try {
     const { role, status, page = 1, limit = 10 } = req.query;
@@ -295,7 +294,6 @@ export const getUsers = async (req, res) => {
     });
   }
 };
-
 
 // =============== ADMIN AUTH ===================
 
@@ -378,7 +376,7 @@ export const adminLogout = (req, res) => {
 
 // ================== ADMIN MANAGEMENT ==================
 
-// Create Admin 
+// Create Admin
 export const createAdmin = async (req, res) => {
   try {
     const { name, phone, city, password, role } = req.body;
