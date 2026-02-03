@@ -15,7 +15,7 @@ export const investorAuth = async (req, res, next) => {
       return res.status(403).json({ message: "Investor application not approved" });
     }
 
-    req.user = user; // attach user to request
+    req.user = user;
     next();
   } catch (err) {
     return res.status(401).json({ message: "Invalid token" });
