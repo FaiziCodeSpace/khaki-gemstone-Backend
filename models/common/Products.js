@@ -50,7 +50,7 @@ const productSchema = new mongoose.Schema({
   },
   portal: {
     type: String,
-    enum: ["PUBLIC", "INVESTOR"],
+    enum: ["PUBLIC", "INVESTOR", "PUBLIC BY INVESTED"],
     index: true
   },
 

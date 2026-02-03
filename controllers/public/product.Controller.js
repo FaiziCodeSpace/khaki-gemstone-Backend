@@ -2,6 +2,15 @@ import Product from "../../models/common/Products.js";
 import path from 'path';
 import fs from 'fs';
 
+const safeParse = (data, fallback) => {
+    if (typeof data === 'object' && data !== null) return data;
+    try {
+        return data ? JSON.parse(data) : JSON.parse(fallback);
+    } catch (e) {
+        return JSON.parse(fallback);
+    }
+};
+
 export const getAllProducts = async (req, res) => {
     try {
         const { limited, limit, search, category, filter: filterQuery, portal, page } = req.query;
@@ -82,40 +91,41 @@ export const getProductById = async (req, res) => {
     }
 };
 
-// Create Product 
 const UPLOAD_BASE_PATH = path.join(process.cwd(), 'uploads');
 
-const safeParse = (data, fallback) => {
-    if (typeof data === 'object') return data;
-    try {
-        return JSON.parse(data || fallback);
-    } catch (e) {
-        return JSON.parse(fallback);
+const ensureDirs = async () => {
+    const dirs = ['products', 'lab_test', 'certificate'];
+    for (const dir of dirs) {
+        const fullPath = path.join(UPLOAD_BASE_PATH, dir);
+        if (!fs.existsSync(fullPath)) {
+            await fs.promises.mkdir(fullPath, { recursive: true });
+        }
     }
 };
 
-const handleFileUploads = (files, pNum, productObj) => {
-    const dirs = ['products', 'lab_test', 'certificate'];
-    dirs.forEach(dir => {
-        const fullPath = path.join(UPLOAD_BASE_PATH, dir);
-        if (!fs.existsSync(fullPath)) fs.mkdirSync(fullPath, { recursive: true });
-    });
+const handleFileUploads = async (files, pNum, productObj) => {
+    await ensureDirs();
 
     if (files['images']) {
-        files['images'].forEach((file, idx) => {
+        productObj.imgs_src = []; 
+        for (let idx = 0; idx < files['images'].length; idx++) {
+            const file = files['images'][idx];
             const ext = path.extname(file.originalname) || '.jpg';
             const fileName = `${pNum}_${Date.now()}_${idx}${ext}`;
             const dest = path.join(UPLOAD_BASE_PATH, 'products', fileName);
-            fs.renameSync(file.path, dest);
+            
+            await fs.promises.rename(file.path, dest);
             productObj.imgs_src.push(`/uploads/products/${fileName}`);
-        });
+        }
     }
 
     if (files['lab_test']?.[0]) {
         const file = files['lab_test'][0];
         const ext = path.extname(file.originalname) || '.jpg';
         const fileName = `${pNum}_lab_${Date.now()}${ext}`;
-        fs.renameSync(file.path, path.join(UPLOAD_BASE_PATH, 'lab_test', fileName));
+        const dest = path.join(UPLOAD_BASE_PATH, 'lab_test', fileName);
+        
+        await fs.promises.rename(file.path, dest);
         productObj.lab_test_img_src = `/uploads/lab_test/${fileName}`;
     }
 
@@ -123,7 +133,9 @@ const handleFileUploads = (files, pNum, productObj) => {
         const file = files['certificate'][0];
         const ext = path.extname(file.originalname) || '.jpg';
         const fileName = `${pNum}_cert_${Date.now()}${ext}`;
-        fs.renameSync(file.path, path.join(UPLOAD_BASE_PATH, 'certificate', fileName));
+        const dest = path.join(UPLOAD_BASE_PATH, 'certificate', fileName);
+        
+        await fs.promises.rename(file.path, dest);
         productObj.certificate_img_src = `/uploads/certificate/${fileName}`;
     }
 };
@@ -133,7 +145,6 @@ export const createProduct = async (req, res) => {
         const details = safeParse(req.body.details, "{}");
         const more_information = safeParse(req.body.more_information, "{}");
         const tags = safeParse(req.body.tags, "[]");
-
         const newProduct = new Product({
             ...req.body,
             price: Number(req.body.price) || 0,
@@ -149,7 +160,7 @@ export const createProduct = async (req, res) => {
         });
 
         if (req.files && Object.keys(req.files).length > 0) {
-            handleFileUploads(req.files, newProduct.productNumber, newProduct);
+            await handleFileUploads(req.files, newProduct.productNumber, newProduct);
         }
 
         const savedProduct = await newProduct.save();
@@ -160,7 +171,6 @@ export const createProduct = async (req, res) => {
     }
 };
 
-// Update Product
 export const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
@@ -169,22 +179,16 @@ export const updateProduct = async (req, res) => {
 
         const updateData = { ...req.body };
 
-        if (req.body.portal) updateData.portal = req.body.portal.toUpperCase();
         if (req.body.details) updateData.details = safeParse(req.body.details, "{}");
         if (req.body.tags) updateData.tags = safeParse(req.body.tags, "[]");
-        if (req.body.price) updateData.price = Number(req.body.price);
-        if (req.body.profitMargin) updateData.profitMargin = Number(req.body.profitMargin);
-
         if (req.body.more_information) {
             const moreInfo = safeParse(req.body.more_information, "{}");
             updateData.more_information = { ...moreInfo, weight: Number(moreInfo.weight) || 0 };
         }
 
         if (req.files && Object.keys(req.files).length > 0) {
-
             if (req.files['images']) {
-                product.imgs_src.forEach(path => deletePhysicalFile(path));
-                product.imgs_src = []; 
+                product.imgs_src.forEach(oldPath => deletePhysicalFile(oldPath));
             }
             if (req.files['lab_test']) {
                 deletePhysicalFile(product.lab_test_img_src);
@@ -193,21 +197,31 @@ export const updateProduct = async (req, res) => {
                 deletePhysicalFile(product.certificate_img_src);
             }
 
-            handleFileUploads(req.files, product.productNumber, product);
-
-            updateData.imgs_src = product.imgs_src;
-            updateData.lab_test_img_src = product.lab_test_img_src;
-            updateData.certificate_img_src = product.certificate_img_src;
+            await handleFileUploads(req.files, product.productNumber, product);
         }
+
+        updateData.imgs_src = product.imgs_src;
+        updateData.lab_test_img_src = product.lab_test_img_src;
+        updateData.certificate_img_src = product.certificate_img_src;
 
         const updated = await Product.findByIdAndUpdate(id, updateData, { new: true });
         res.status(200).json(updated);
     } catch (error) {
+        console.error("UPDATE ERROR:", error);
         res.status(500).json({ error: error.message });
     }
 };
 
-// Delete Product 
+const deletePhysicalFile = (relativePath) => {
+    if (!relativePath) return;
+    const cleanPath = relativePath.startsWith('/') ? relativePath.substring(1) : relativePath;
+    const absolutePath = path.join(process.cwd(), cleanPath);
+
+    if (fs.existsSync(absolutePath)) {
+        fs.promises.unlink(absolutePath).catch(err => console.error("Unlink error:", err));
+    }
+};
+
 export const deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
@@ -218,25 +232,11 @@ export const deleteProduct = async (req, res) => {
         product.imgs_src.forEach(path => deletePhysicalFile(path));
         deletePhysicalFile(product.lab_test_img_src);
         deletePhysicalFile(product.certificate_img_src);
+        
         await Product.findByIdAndDelete(id);
 
         res.status(200).json({ message: "Product and files deleted!" });
     } catch (error) {
         res.status(500).json({ error: error.message });
-    }
-};
-
-
-const deletePhysicalFile = (relativePath) => {
-    if (!relativePath) return;
-    const absolutePath = path.join(process.cwd(), relativePath);
-
-    if (fs.existsSync(absolutePath)) {
-        try {
-            fs.unlinkSync(absolutePath);
-            console.log("File deleted from folder:", absolutePath);
-        } catch (err) {
-            console.error("Could not delete file:", err);
-        }
     }
 };

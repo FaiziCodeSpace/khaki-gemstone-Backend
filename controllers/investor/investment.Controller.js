@@ -36,7 +36,7 @@ export const investInProduct = async (req, res) => {
     }
 
     const existingInvestment = await Investment.findOne({ product: productId }).session(session);
-    if (existingInvestment) {
+    if (existingInvestment || product.status === "PUBLIC BY INVESTED") {
       throw new Error("This product has just been taken by another investor");
     }
 
@@ -67,7 +67,8 @@ export const investInProduct = async (req, res) => {
 
     await user.save({ session });
 
-    product.status = "ForSale";
+    product.status = "For Sale";
+    product.portal = "PUBLIC BY INVESTED";
     await product.save({ session });
 
     await session.commitTransaction();
