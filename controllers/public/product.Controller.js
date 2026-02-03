@@ -4,17 +4,22 @@ import fs from 'fs';
 
 export const getAllProducts = async (req, res) => {
     try {
-        const { limited, limit, search, category, filter: filterQuery } = req.query;
-        let mongoFilter = {};
+        const { limited, limit, search, category, filter: filterQuery, portal, page } = req.query;
+        
+        const pageNum = parseInt(page) || 1; 
+        const limitNum = parseInt(limit) || 0; 
+        const skip = (pageNum - 1) * limitNum;
 
-        // if (req.user?.role !== 'admin') {
-        //     mongoFilter.isActive = true;
-        // }
+        let mongoFilter = {};
 
         if (limited === 'true') mongoFilter.isLimitedProduct = true;
         if (limited === 'false') mongoFilter.isLimitedProduct = false;
 
         let conditions = [];
+
+        if (portal) {
+            conditions.push({ portal: portal.toUpperCase() });
+        }
 
         if (search) {
             conditions.push({
@@ -46,12 +51,19 @@ export const getAllProducts = async (req, res) => {
         if (conditions.length > 0) {
             mongoFilter.$and = conditions;
         }
+        const totalProducts = await Product.countDocuments(mongoFilter);
+
 
         const products = await Product.find(mongoFilter)
             .sort({ createdAt: -1 })
-            .limit(parseInt(limit) || 0);
-
-        return res.status(200).json(products);
+            .skip(limitNum > 0 ? skip : 0) 
+            .limit(limitNum);
+        return res.status(200).json({
+            products,
+            totalProducts,
+            totalPages: limitNum > 0 ? Math.ceil(totalProducts / limitNum) : 1,
+            currentPage: pageNum
+        });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
@@ -125,8 +137,8 @@ export const createProduct = async (req, res) => {
         const newProduct = new Product({
             ...req.body,
             price: Number(req.body.price) || 0,
-            profitMargin: Number(req.body.profitMargin) || 0, 
-            portal: req.body.portal?.toUpperCase(), 
+            profitMargin: Number(req.body.profitMargin) || 0,
+            portal: req.body.portal?.toUpperCase(),
             details,
             more_information: {
                 ...more_information,
@@ -143,45 +155,46 @@ export const createProduct = async (req, res) => {
         const savedProduct = await newProduct.save();
         res.status(201).json(savedProduct);
     } catch (error) {
-        console.error("CREATE ERROR:", error); 
+        console.error("CREATE ERROR:", error);
         res.status(500).json({ error: error.message });
     }
 };
 
+// Update Product
 export const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
         const product = await Product.findById(id);
         if (!product) return res.status(404).json({ message: "Product not found" });
 
-        // 1. Use safeParse to match createProduct logic
-        const updateData = {
-            ...req.body,
-            // Ensure portal is uppercase if provided
-            ...(req.body.portal && { portal: req.body.portal.toUpperCase() })
-        };
+        const updateData = { ...req.body };
 
+        if (req.body.portal) updateData.portal = req.body.portal.toUpperCase();
         if (req.body.details) updateData.details = safeParse(req.body.details, "{}");
-
-        if (req.body.more_information) {
-            const moreInfo = safeParse(req.body.more_information, "{}");
-            updateData.more_information = {
-                ...moreInfo,
-                // Consistency fix: cast weight to number just like in create
-                weight: Number(moreInfo.weight) || 0
-            };
-        }
-
         if (req.body.tags) updateData.tags = safeParse(req.body.tags, "[]");
-
-        // 2. Consistency fix: ensure numeric types
         if (req.body.price) updateData.price = Number(req.body.price);
         if (req.body.profitMargin) updateData.profitMargin = Number(req.body.profitMargin);
 
-        // 3. Handle Files
+        if (req.body.more_information) {
+            const moreInfo = safeParse(req.body.more_information, "{}");
+            updateData.more_information = { ...moreInfo, weight: Number(moreInfo.weight) || 0 };
+        }
+
         if (req.files && Object.keys(req.files).length > 0) {
-            // Note: handleFileUploads modifies the 'product' object by reference
+
+            if (req.files['images']) {
+                product.imgs_src.forEach(path => deletePhysicalFile(path));
+                product.imgs_src = []; 
+            }
+            if (req.files['lab_test']) {
+                deletePhysicalFile(product.lab_test_img_src);
+            }
+            if (req.files['certificate']) {
+                deletePhysicalFile(product.certificate_img_src);
+            }
+
             handleFileUploads(req.files, product.productNumber, product);
+
             updateData.imgs_src = product.imgs_src;
             updateData.lab_test_img_src = product.lab_test_img_src;
             updateData.certificate_img_src = product.certificate_img_src;
@@ -190,7 +203,6 @@ export const updateProduct = async (req, res) => {
         const updated = await Product.findByIdAndUpdate(id, updateData, { new: true });
         res.status(200).json(updated);
     } catch (error) {
-        console.error("UPDATE ERROR:", error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -199,14 +211,32 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedProduct = await Product.findByIdAndDelete(id);
+        const product = await Product.findById(id);
 
-        if (!deletedProduct) {
-            return res.status(404).json({ message: "Product not found" });
-        }
+        if (!product) return res.status(404).json({ message: "Not found" });
 
-        res.status(200).json({ message: "Product Deleted successfully" });
+        product.imgs_src.forEach(path => deletePhysicalFile(path));
+        deletePhysicalFile(product.lab_test_img_src);
+        deletePhysicalFile(product.certificate_img_src);
+        await Product.findByIdAndDelete(id);
+
+        res.status(200).json({ message: "Product and files deleted!" });
     } catch (error) {
-        res.status(500).json({ message: "Delete failed", error: error.message });
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
+const deletePhysicalFile = (relativePath) => {
+    if (!relativePath) return;
+    const absolutePath = path.join(process.cwd(), relativePath);
+
+    if (fs.existsSync(absolutePath)) {
+        try {
+            fs.unlinkSync(absolutePath);
+            console.log("File deleted from folder:", absolutePath);
+        } catch (err) {
+            console.error("Could not delete file:", err);
+        }
     }
 };

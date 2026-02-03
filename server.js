@@ -14,6 +14,7 @@ import adminRoute from "./routes/admin.routes.js";
 import dashboardRoute from "./routes/dashboardMatrics.routes.js";
 import orderRoute from "./routes/order.routes.js";
 import transactionRoute from "./routes/transactionsLog.routes.js";
+import investorRoutes from "./routes/investor.routes.js";
 
 // CONFIGURATION 
 dotenv.config();
@@ -54,6 +55,8 @@ app.use("/api", cartFavRoute);
 app.use("/api", eventRoute);
 app.use("/api", orderRoute);
 
+// INVESTOR ROUTES
+app.use("/api/investor", investorRoutes);
 
 // Listening 
 app.listen(PORT, () => {

@@ -16,11 +16,10 @@ export const orderBook = async (req, res) => {
         const validatedItems = [];
         let productsSum = 0;
 
-        // 1. Inventory Check & Lock
         for (const item of items) {
             const product = await Product.findOneAndUpdate(
-                { _id: item.product, isActive: true },
-                { isActive: false },
+                { _id: item.product, isActive: true, status: "Active" },
+                { isActive: false, status: "Sold" },
                 { new: true, session }
             );
 
@@ -32,8 +31,7 @@ export const orderBook = async (req, res) => {
 
         const totalAmount = productsSum + DELIVERY_FEE;
         const orderNumber = `ORD-${uuidv4().split("-")[0].toUpperCase()}`;
-
-        // 2. Auth & Balance Logic
+        
         const userId = req.user ? req.user._id : null;
         let balanceBefore = 0;
         let balanceAfter = 0;

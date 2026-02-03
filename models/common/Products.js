@@ -21,54 +21,72 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  gem_size: {
-    type: String,
-  },
+  gem_size: String,
+
   details: {
     gemstone: { type: String, required: true },
-    cut_type: { type: String },
-    color: { type: String },
-    clarity: { type: String }
+    cut_type: String,
+    color: String,
+    clarity: String
   },
 
   more_information: {
-    weight: { type: Number },
-    origin: { type: String },
-    treatment: { type: String },
-    refractive_index: { type: String }
+    weight: Number,
+    origin: String,
+    treatment: String,
+    refractive_index: String
   },
+
   profitMargin: {
     type: Number,
     min: 0,
     default: null
+  },
+  status: {
+    type: String,
+    enum: ["Available", "Sold", "Pending", "For Sale"],
+    default: "Available",
+    index: true
   },
   portal: {
     type: String,
     enum: ["PUBLIC", "INVESTOR"],
     index: true
   },
+
   location: {
     type: String,
     trim: true,
     required: true
   },
+
   isLimitedProduct: {
     type: Boolean,
-    default: true,
+    default: true
   },
-  imgs_src: [{
-    type: String
-  }],
-  lab_test_img_src: {
-    type: String
-  },
-  certificate_img_src: {
-    type: String
-  },
+
+  imgs_src: [String],
+  lab_test_img_src: String,
+  certificate_img_src: String,
+
   isActive: { type: Boolean, default: true },
-  tags: [{ type: String }]
+  tags: [String]
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+productSchema.virtual('profitEstimate').get(function () {
+  if (
+    this.portal !== 'INVESTOR' ||
+    this.profitMargin === null ||
+    this.price == null
+  ) {
+    return null;
+  }
+
+  return Number((this.price * (this.profitMargin / 100)).toFixed(2));
 });
 
 const Product = mongoose.model('Product', productSchema);
