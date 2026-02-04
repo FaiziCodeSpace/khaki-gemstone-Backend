@@ -145,10 +145,13 @@ export const createProduct = async (req, res) => {
         const details = safeParse(req.body.details, "{}");
         const more_information = safeParse(req.body.more_information, "{}");
         const tags = safeParse(req.body.tags, "[]");
+
         const newProduct = new Product({
             ...req.body,
             price: Number(req.body.price) || 0,
             profitMargin: Number(req.body.profitMargin) || 0,
+            profitSharingModel: Number(req.body.profitSharingModel) || 0, 
+
             portal: req.body.portal?.toUpperCase(),
             details,
             more_information: {
@@ -177,13 +180,23 @@ export const updateProduct = async (req, res) => {
         const product = await Product.findById(id);
         if (!product) return res.status(404).json({ message: "Product not found" });
 
-        const updateData = { ...req.body };
+        const updateData = { ...req.params.body }; 
+
+        if (req.body.price !== undefined) updateData.price = Number(req.body.price) || 0;
+        if (req.body.profitMargin !== undefined) updateData.profitMargin = Number(req.body.profitMargin) || 0;
+        if (req.body.profitSharingModel !== undefined) updateData.profitSharingModel = Number(req.body.profitSharingModel) || 0;
+        
+        if (req.body.portal) updateData.portal = req.body.portal.toUpperCase();
 
         if (req.body.details) updateData.details = safeParse(req.body.details, "{}");
         if (req.body.tags) updateData.tags = safeParse(req.body.tags, "[]");
+        
         if (req.body.more_information) {
             const moreInfo = safeParse(req.body.more_information, "{}");
-            updateData.more_information = { ...moreInfo, weight: Number(moreInfo.weight) || 0 };
+            updateData.more_information = { 
+                ...moreInfo, 
+                weight: Number(moreInfo.weight) || 0 
+            };
         }
 
         if (req.files && Object.keys(req.files).length > 0) {

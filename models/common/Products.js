@@ -42,6 +42,11 @@ const productSchema = new mongoose.Schema({
     min: 0,
     default: null
   },
+  profitSharingModel: {
+    type: Number,
+    min: 0,
+    default: null
+  },
   status: {
     type: String,
     enum: ["Available", "Sold", "Pending", "For Sale"],
