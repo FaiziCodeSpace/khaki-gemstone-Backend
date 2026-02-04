@@ -82,17 +82,20 @@ const productSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-productSchema.virtual('profitEstimate').get(function () {
-  if (
-    this.portal !== 'INVESTOR' ||
-    this.profitMargin === null ||
-    this.price == null
-  ) {
-    return null;
+// In your Product Schema
+productSchema.virtual('publicPrice').get(function() {
+  if (this.portal === "PUBLIC BY INVESTED") {
+    const markup = this.price * (this.profitMargin / 100);
+    return Number((this.price + markup).toFixed(2));
   }
-
-  return Number((this.price * (this.profitMargin / 100)).toFixed(2));
+  return this.price; 
 });
+
+// Ensure virtuals are included when converting to JSON
+productSchema.set('toJSON', { virtuals: true });
+productSchema.set('toObject', { virtuals: true });
+
+
 
 const Product = mongoose.model('Product', productSchema);
 

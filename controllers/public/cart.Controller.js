@@ -3,14 +3,14 @@ import Cart from "../../models/public/Cart.js";
 export const getCart = async (req, res) => {
   try {
     const userId = req.user.id;
+    // Populate is essential for virtuals to be calculated in the response
     const cart = await Cart.findOne({ userId }).populate("items");
 
-    // Always return an object with an "items" key
     if (!cart) {
-      return res.status(200).json({ items: [] });
+      return res.status(200).json([]);
     }
 
-    res.status(200).json({ items: cart.items });
+    res.status(200).json(cart.items);
   } catch (error) {
     res.status(500).json({ message: "Error fetching cart", error: error.message });
   }

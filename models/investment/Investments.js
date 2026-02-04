@@ -40,7 +40,7 @@ const investmentSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['ACTIVE', 'COMPLETED'],
+        enum: ['ACTIVE', 'REFUNDED', 'COMPLETED'],
         default: 'ACTIVE'
     }
 }, {
