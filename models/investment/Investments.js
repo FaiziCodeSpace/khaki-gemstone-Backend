@@ -8,7 +8,7 @@ const investmentSchema = new mongoose.Schema({
     },
     user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', 
+        ref: 'User',
         required: true
     },
 
@@ -32,7 +32,12 @@ const investmentSchema = new mongoose.Schema({
 
     estimatedProfit: { type: Number, required: true },
     totalExpectedReturn: { type: Number, required: true },
-
+    sharingPercentage: {
+        type: Number, 
+        min: 0,
+        max: 100,
+        default: 0
+    },
     status: {
         type: String,
         enum: ['ACTIVE', 'COMPLETED'],

@@ -19,8 +19,9 @@ export const investInProduct = async (req, res) => {
       throw new Error("Product is no longer available for investment");
     }
 
-    const actualCost = product.price;
-    const margin = product.profitMargin || 0;
+    const actualCost = product.price; 
+    const marginPercent = product.profitMargin || 0; 
+    const sharingPercent = product.profitSharingModel || 0; 
 
     if (!actualCost || actualCost <= 0) {
       throw new Error("Invalid product price configuration");
@@ -40,8 +41,17 @@ export const investInProduct = async (req, res) => {
       throw new Error("This product has just been taken by another investor");
     }
 
-    const estimatedProfit = Number((actualCost * (margin / 100)).toFixed(2));
+    // --- INDUSTRY STANDARD CALCULATION ---
+    
+    // 1. Calculate the total markup/profit the business expects to make
+    const totalMarkup = actualCost * (marginPercent / 100);
+    
+    // 2. Calculate the Investor's specific share of that profit
+    const estimatedProfit = Number(((totalMarkup * sharingPercent) / 100).toFixed(2));
+    
+    // 3. Total Return = Initial Capital + Investor's Share of Profit
     const totalExpectedReturn = Number((actualCost + estimatedProfit).toFixed(2));
+    
     const invId = `INV-${uuidv4().split("-")[0].toUpperCase()}`;
 
     const [investment] = await Investment.create(
@@ -50,7 +60,8 @@ export const investInProduct = async (req, res) => {
         user: userId,
         product: productId,
         investmentAmount: actualCost,
-        profitMargin: margin,
+        profitMargin: marginPercent,
+        sharingPercentage: sharingPercent, // Added for record keeping
         estimatedProfit,        
         totalExpectedReturn,  
         status: 'ACTIVE'
@@ -81,7 +92,6 @@ export const investInProduct = async (req, res) => {
     session.endSession();
   }
 };
-
 
 export const getInvestorInvestments = async (req, res) => {
   try {

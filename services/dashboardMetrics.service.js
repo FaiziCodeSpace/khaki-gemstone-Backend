@@ -12,7 +12,6 @@ export const getDashboardMetrics = async () => {
     const firstDayOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastDayOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-    // Run all major category queries in parallel
     const [userMetrics, orderMetrics, investmentMetrics, transactionMetrics, totalProducts, productsInvestedArr] = await Promise.all([
       /* 1. USER METRICS */
       User.aggregate([
@@ -62,17 +61,27 @@ export const getDashboardMetrics = async () => {
         }
       ]),
 
-      /* 3. INVESTMENT METRICS */
+      /* 3. FIXED INVESTMENT METRICS (Matching your Schema fields) */
       Investment.aggregate([
         {
           $facet: {
             counts: [{ $count: "total" }],
-            activeInvestment: [
-              { $match: { status: "ACTIVE" } },
-              { $group: { _id: null, total: { $sum: "$amount" } } }
+            financials: [
+              {
+                $group: {
+                  _id: null,
+                  // Summing the correct schema field: investmentAmount
+                  totalCapitalInvested: { $sum: "$investmentAmount" },
+                  // Summing the potential ROI
+                  totalEstimatedProfit: { $sum: "$estimatedProfit" },
+                  // Summing the total liability (Principal + Profit)
+                  totalExpectedReturn: { $sum: "$totalExpectedReturn" }
+                }
+              }
             ],
-            capital: [
-              { $group: { _id: null, invested: { $sum: "$amount" }, returned: { $sum: "$returnedAmount" } } }
+            activeInvestments: [
+              { $match: { status: "ACTIVE" } },
+              { $group: { _id: null, total: { $sum: "$investmentAmount" } } }
             ]
           }
         }
@@ -88,41 +97,37 @@ export const getDashboardMetrics = async () => {
         }
       ]),
 
-      /* 5. SIMPLE COUNTS */
       Product.countDocuments(),
       Investment.distinct("product")
     ]);
 
-    // Format results to match your original response structure
     const u = userMetrics[0];
     const o = orderMetrics[0];
     const i = investmentMetrics[0];
     const t = transactionMetrics[0];
 
-    const usersBefore24h = u.usersBefore24h[0]?.count || 0;
-    const usersLast24h = u.usersLast24h[0]?.count || 0;
+    const invFin = i.financials[0] || {};
 
     return {
       totalUsers: u.totalUsers[0]?.count || 0,
-      usersGrowthPercent: usersBefore24h === 0 ? 100 : Number(((usersLast24h / usersBefore24h) * 100).toFixed(2)),
       activeInvestors: u.activeInvestors[0]?.count || 0,
       totalInvestors: u.totalInvestors[0]?.count || 0,
       pendingApplications: u.pendingApplications[0]?.count || 0,
       totalProducts,
       totalOrders: o.totalOrders[0]?.count || 0,
-      newOrders: o.newOrders[0]?.count || 0,
-      dispatchedOrders: o.dispatchedOrders[0]?.count || 0,
       ordersRevenue: o.revenue[0]?.total || 0,
-      customers: o.customers[0]?.total || 0,
-      totalInvestments: i.counts[0]?.total || 0,
-      totalInvestment: i.activeInvestment[0]?.total || 0,
+      
+      // Collective Investment Metrics
+      totalInvestmentsCount: i.counts[0]?.total || 0,
+      totalActiveCapital: i.activeInvestments[0]?.total || 0, // Money currently tied up in ACTIVE assets
+      investmentAnalytics: {
+        totalVolume: invFin.totalCapitalInvested || 0,       // Every PKR ever invested
+        projectedPayout: invFin.totalExpectedReturn || 0,   // Total amount Admin needs to pay back eventually
+        totalEstimatedProfit: invFin.totalEstimatedProfit || 0 // Total profit margin across all assets
+      },
+
       productsInvested: productsInvestedArr.length,
       revenueOverview: o.revenueOverview.map(item => ({ _id: { day: item._id }, revenue: item.revenue })),
-      capitalOverview: {
-        invested: i.capital[0]?.invested || 0,
-        returned: i.capital[0]?.returned || 0,
-        active: (i.capital[0]?.invested || 0) - (i.capital[0]?.returned || 0)
-      },
       newTransactions: t.newTransactions[0]?.count || 0,
       transactionVolume: t.volume[0]?.total || 0
     };
