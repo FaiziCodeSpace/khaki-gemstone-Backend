@@ -4,8 +4,7 @@ import Order from "../../models/common/Orders.js";
 import Product from "../../models/common/Products.js";
 import Transaction from "../../models/admin/Transactions.js";
 import User from "../../models/users/User.js";
-
-const DELIVERY_FEE = 250;
+import { generatePayfastSignature } from "../../utils/payfast.js"; 
 
 export const orderBook = async (req, res) => {
     const session = await mongoose.startSession();
@@ -29,33 +28,10 @@ export const orderBook = async (req, res) => {
             validatedItems.push({ product: product._id, price: product.price });
         }
 
-        const totalAmount = productsSum + DELIVERY_FEE;
+        const totalAmount = productsSum;
         const orderNumber = `ORD-${uuidv4().split("-")[0].toUpperCase()}`;
-        
         const userId = req.user ? req.user._id : null;
-        let balanceBefore = 0;
-        let balanceAfter = 0;
-        let paymentStatus = "PENDING";
 
-        if (userId) {
-            const user = await User.findById(userId).session(session);
-            if (user) {
-                balanceBefore = user.balance || 0;
-                balanceAfter = balanceBefore;
-
-                if (paymentMethod === "SOFT_WALLET") {
-                    if (balanceBefore < totalAmount) throw new Error("Insufficient wallet balance");
-                    balanceAfter = balanceBefore - totalAmount;
-                    user.balance = balanceAfter;
-                    await user.save({ session });
-                    paymentStatus = "SUCCESS";
-                }
-            }
-        } else if (paymentMethod === "SOFT_WALLET") {
-            throw new Error("Guest users cannot pay using Soft Wallet");
-        }
-
-        // 3. Create Order
         const [order] = await Order.create(
             [{
                 orderNumber,
@@ -66,37 +42,86 @@ export const orderBook = async (req, res) => {
                 totalAmount,
                 totalQuantity: validatedItems.length,
                 paymentMethod,
-                status: paymentStatus === "SUCCESS" ? "PAID" : "PENDING",
-                isPaid: paymentStatus === "SUCCESS",
-                paidAt: paymentStatus === "SUCCESS" ? Date.now() : null
+                status: "PENDING",
+                isPaid: false,
+                paidAt: null
             }],
             { session }
         );
 
-        // 4. Create Transaction Record
         await Transaction.create(
             [{
-                transactionId: `TRX-${uuidv4().split('-')[0].toUpperCase()}`,
                 user: userId,
                 source: paymentMethod,
-                type: "GEMSTONE_PURCHASE",
+                type: "PURCHASE",
                 amount: totalAmount,
-                balanceBefore,
-                balanceAfter,
                 order: order._id,
                 products: validatedItems.map(i => i.product),
-                status: paymentStatus
+                status: "PENDING"
             }],
             { session }
         );
 
         await session.commitTransaction();
+
+        // --- NEW PAYFAST INTEGRATION LOGIC ---
+        if (paymentMethod === "PAYFAST") {
+            const payfastData = {
+                merchant_id: process.env.PAYFAST_MERCHANT_ID || '10000100', // Default Sandbox ID
+                merchant_key: process.env.PAYFAST_MERCHANT_KEY || '46f0cd694581a', // Default Sandbox Key
+                return_url: `${process.env.FRONTEND_URL}/payment/success`,
+                cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
+                notify_url: `${process.env.BACKEND_URL}/api/orders/payfast-itn`, // This is the ITN route
+                name_first: customer.name,
+                m_payment_id: order.orderNumber, // Links back to this order
+                amount: totalAmount.toFixed(2),
+                item_name: `Order ${order.orderNumber}`
+            };
+
+            const signature = generatePayfastSignature(payfastData, process.env.PAYFAST_PASSPHRASE);
+            
+            return res.status(201).json({
+                order,
+                payfast: {
+                    ...payfastData,
+                    signature,
+                    url: "https://sandbox.payfast.co.za/eng/process" // Switch to live URL later
+                }
+            });
+        }
+        // --- END PAYFAST LOGIC ---
+
         res.status(201).json(order);
     } catch (error) {
         await session.abortTransaction();
         res.status(500).json({ message: "Order creation failed", error: error.message });
     } finally {
         session.endSession();
+    }
+};
+
+export const handlePaymentCancel = async (req, res) => {
+    const { orderNumber } = req.params;
+
+    try {
+        const order = await Order.findOne({ orderNumber, status: "PENDING" });
+        
+        if (order) {
+            // Revert products to Available
+            const productIds = order.items.map(item => item.product);
+            await Product.updateMany(
+                { _id: { $in: productIds } }, 
+                { isActive: true, status: "Available" }
+            );
+
+            order.status = "CANCELLED";
+            await order.save();
+        }
+
+        // Redirect the user back to the shop or cart
+        res.redirect(`${process.env.FRONTEND_URL}/shop?message=payment_cancelled`);
+    } catch (error) {
+        res.status(500).json({ message: "Error cancelling order", error: error.message });
     }
 };
 
@@ -136,34 +161,29 @@ export const updateOrderStatus = async (req, res) => {
         const order = await Order.findById(id).session(session);
         if (!order) return res.status(404).json({ message: "Order not found" });
 
-        // 1. Sync Payment Toggle
-        if (typeof isPaid !== 'undefined' && order.isPaid !== isPaid) {
-            order.isPaid = isPaid;
-            order.paidAt = isPaid ? Date.now() : null;
-            
-            await Transaction.findOneAndUpdate(
-                { order: order._id },
-                { status: isPaid ? "SUCCESS" : "FAILED" },
-                { session }
-            );
-        }
-
-        // 2. Status Transitions
-        if (status && order.status !== status) {
-            const validTransitions = {
-                PENDING: ["PAID", "DISPATCHED", "CANCELLED"],
-                PAID: ["DISPATCHED", "CANCELLED"],
-                DISPATCHED: ["DELIVERED"],
-                DELIVERED: [],
-                CANCELLED: []
-            };
-
-            if (!validTransitions[order.status]?.includes(status)) {
-                throw new Error(`Invalid status transition from ${order.status} to ${status}`);
+        if (typeof isPaid !== 'undefined') {
+            if (order.isPaid === true && isPaid === false) {
+                throw new Error("A completed payment cannot be reverted to unpaid.");
             }
 
+            if (order.isPaid === false && isPaid === true) {
+                order.isPaid = true;
+                order.paidAt = Date.now();
+                
+                await Transaction.findOneAndUpdate(
+                    { order: order._id },
+                    { status: "SUCCESS" },
+                    { session }
+                );
+            }
+        }
+
+
+        if (status && order.status !== status) {
             order.status = status;
+
             if (status === "DISPATCHED") order.dispatchedAt = Date.now();
+            
             if (status === "DELIVERED") {
                 order.deliveredAt = Date.now();
                 if (order.paymentMethod === "COD") {
@@ -173,36 +193,20 @@ export const updateOrderStatus = async (req, res) => {
                 }
             }
 
-            // 3. Handle Cancellation (Stock Revert + Wallet Refund)
             if (status === "CANCELLED") {
-                // Revert Product Availability
                 const productIds = order.items.map(item => item.product);
-                await Product.updateMany({ _id: { $in: productIds } }, { isActive: true }, { session });
+                await Product.updateMany(
+                    { _id: { $in: productIds } }, 
+                    { isActive: true, status: "Available" }, 
+                    { session }
+                );
 
-                // Update Transaction Status
-                await Transaction.findOneAndUpdate({ order: order._id }, { status: "FAILED" }, { session });
-
-                // Refund SOFT_WALLET users
-                if (order.paymentMethod === "SOFT_WALLET" && order.user) {
-                    const user = await User.findById(order.user).session(session);
-                    if (user) {
-                        const balanceBefore = user.balance;
-                        user.balance += order.totalAmount;
-                        await user.save({ session });
-
-                        // Log the Refund Transaction
-                        await Transaction.create([{
-                            transactionId: `REFUND-${uuidv4().split('-')[0].toUpperCase()}`,
-                            user: user._id,
-                            type: "INVESTMENT_REFUND",
-                            amount: order.totalAmount,
-                            balanceBefore,
-                            balanceAfter: user.balance,
-                            order: order._id,
-                            status: "SUCCESS",
-                            meta: { reason: "Order Cancelled" }
-                        }], { session });
-                    }
+                if (!order.isPaid) {
+                    await Transaction.findOneAndUpdate(
+                        { order: order._id }, 
+                        { status: "FAILED" }, 
+                        { session }
+                    );
                 }
             }
         }
@@ -214,7 +218,8 @@ export const updateOrderStatus = async (req, res) => {
         res.status(200).json(order);
     } catch (error) {
         await session.abortTransaction();
-        res.status(500).json({ message: "Update failed", error: error.message });
+        const statusCode = error.message.includes("reverted") ? 400 : 500;
+        res.status(statusCode).json({ message: "Update failed", error: error.message });
     } finally {
         session.endSession();
     }

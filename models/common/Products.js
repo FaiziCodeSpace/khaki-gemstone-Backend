@@ -82,13 +82,12 @@ const productSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// In your Product Schema
-productSchema.virtual('publicPrice').get(function() {
+productSchema.virtual('publicPrice').get(function () {
   if (this.portal === "PUBLIC BY INVESTED") {
     const markup = this.price * (this.profitMargin / 100);
-    return Number((this.price + markup).toFixed(2));
+    return Math.round(this.price + markup);
   }
-  return this.price; 
+  return Math.round(this.price);
 });
 
 // Ensure virtuals are included when converting to JSON

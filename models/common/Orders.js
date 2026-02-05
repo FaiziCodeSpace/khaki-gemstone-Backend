@@ -36,14 +36,18 @@ const orderSchema = new mongoose.Schema(
     totalQuantity: { type: Number, required: true },
     status: {
       type: String,
-      enum: ["PENDING", "PAID", "DISPATCHED", "DELIVERED", "CANCELLED"], 
+      enum: ["PENDING", "PAID", "DISPATCHED", "DELIVERED", "CANCELLED"],
       default: "PENDING",
       index: true
     },
     paymentMethod: {
       type: String,
-      enum: ["COD", "CARD", "BANK"],
+      enum: ["COD", "PAYFAST"],
       default: "COD"
+    },
+    paymentId: {
+      type: String,
+      default: null
     },
     isUpdated: {
       type: Boolean,
