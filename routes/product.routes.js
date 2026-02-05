@@ -25,12 +25,12 @@ const productUploadFields = upload.fields([
 ]);
 
 // Admin Protected Routes
-router.post("/createProduct", productUploadFields, createProduct);
+router.post("/createProduct", protectAdmin, productUploadFields, createProduct);
 
 // Note: Added :id and productUploadFields so editing images works!
-router.patch("/updateProduct/:id", productUploadFields, updateProduct);
+router.patch("/updateProduct/:id", protectAdmin, productUploadFields, updateProduct);
 
 // Note: Added :id so the controller knows what to delete
-router.delete("/deleteProduct/:id", deleteProduct);
+router.delete("/deleteProduct/:id", protectAdmin, deleteProduct);
 
 export default router;
