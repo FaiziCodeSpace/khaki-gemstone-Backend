@@ -29,7 +29,8 @@ const orderSchema = new mongoose.Schema(
           ref: "Product",
           required: true
         },
-        price: { type: Number, required: true }
+        price: { type: Number, required: true },
+        investment: { type: mongoose.Schema.Types.ObjectId, ref: "Investment", default: null } 
       }
     ],
     totalAmount: { type: Number, required: true },

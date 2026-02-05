@@ -10,10 +10,10 @@ import { handlePayfastITN } from "../controllers/Webhook/ITN.Controller.js";
 
 const router = express.Router();
 
-router.post("/bookOrder", orderBook);
+router.post("/placeOrder", orderBook);
 router.post("/payfast-itn", handlePayfastITN);
 router.get("/payment-cancel/:orderNumber", handlePaymentCancel);
 router.get("/orders", protectAdmin, getOrders);
-router.patch("/admin/updateOrder/:id/status", protectAdmin, updateOrderStatus);
+router.patch("/updateOrder/:id/status", protectAdmin, updateOrderStatus);
 
 export default router;
