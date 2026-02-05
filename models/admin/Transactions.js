@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { v4 as uuidv4 } from 'uuid';
 
 const transactionSchema = new mongoose.Schema(
     {
@@ -42,12 +43,10 @@ const transactionSchema = new mongoose.Schema(
 
         balanceBefore: {
             type: Number,
-            required: true
         },
 
         balanceAfter: {
             type: Number,
-            required: true
         },
 
         status: {

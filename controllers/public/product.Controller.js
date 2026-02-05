@@ -13,13 +13,18 @@ const safeParse = (data, fallback) => {
 
 export const getAllProducts = async (req, res) => {
     try {
-        const { limited, limit, search, category, filter: filterQuery, portal, page } = req.query;
-        
-        const pageNum = parseInt(page) || 1; 
-        const limitNum = parseInt(limit) || 0; 
+        const { limited, limit, search, category, filter: filterQuery, portal, page, isAdmin } = req.query;
+
+        const pageNum = parseInt(page) || 1;
+        const limitNum = parseInt(limit) || 0;
         const skip = (pageNum - 1) * limitNum;
 
         let mongoFilter = {};
+
+        if (isAdmin !== 'true') {
+            mongoFilter.isActive = true;
+            mongoFilter.status = { $in: ["Available", "For Sale"] };
+        }
 
         if (limited === 'true') mongoFilter.isLimitedProduct = true;
         if (limited === 'false') mongoFilter.isLimitedProduct = false;
@@ -60,13 +65,14 @@ export const getAllProducts = async (req, res) => {
         if (conditions.length > 0) {
             mongoFilter.$and = conditions;
         }
-        const totalProducts = await Product.countDocuments(mongoFilter);
 
+        const totalProducts = await Product.countDocuments(mongoFilter);
 
         const products = await Product.find(mongoFilter)
             .sort({ createdAt: -1 })
-            .skip(limitNum > 0 ? skip : 0) 
+            .skip(limitNum > 0 ? skip : 0)
             .limit(limitNum);
+
         return res.status(200).json({
             products,
             totalProducts,
@@ -107,13 +113,13 @@ const handleFileUploads = async (files, pNum, productObj) => {
     await ensureDirs();
 
     if (files['images']) {
-        productObj.imgs_src = []; 
+        productObj.imgs_src = [];
         for (let idx = 0; idx < files['images'].length; idx++) {
             const file = files['images'][idx];
             const ext = path.extname(file.originalname) || '.jpg';
             const fileName = `${pNum}_${Date.now()}_${idx}${ext}`;
             const dest = path.join(UPLOAD_BASE_PATH, 'products', fileName);
-            
+
             await fs.promises.rename(file.path, dest);
             productObj.imgs_src.push(`/uploads/products/${fileName}`);
         }
@@ -124,7 +130,7 @@ const handleFileUploads = async (files, pNum, productObj) => {
         const ext = path.extname(file.originalname) || '.jpg';
         const fileName = `${pNum}_lab_${Date.now()}${ext}`;
         const dest = path.join(UPLOAD_BASE_PATH, 'lab_test', fileName);
-        
+
         await fs.promises.rename(file.path, dest);
         productObj.lab_test_img_src = `/uploads/lab_test/${fileName}`;
     }
@@ -134,7 +140,7 @@ const handleFileUploads = async (files, pNum, productObj) => {
         const ext = path.extname(file.originalname) || '.jpg';
         const fileName = `${pNum}_cert_${Date.now()}${ext}`;
         const dest = path.join(UPLOAD_BASE_PATH, 'certificate', fileName);
-        
+
         await fs.promises.rename(file.path, dest);
         productObj.certificate_img_src = `/uploads/certificate/${fileName}`;
     }
@@ -150,7 +156,7 @@ export const createProduct = async (req, res) => {
             ...req.body,
             price: Number(req.body.price) || 0,
             profitMargin: Number(req.body.profitMargin) || 0,
-            profitSharingModel: Number(req.body.profitSharingModel) || 0, 
+            profitSharingModel: Number(req.body.profitSharingModel) || 0,
 
             portal: req.body.portal?.toUpperCase(),
             details,
@@ -180,22 +186,22 @@ export const updateProduct = async (req, res) => {
         const product = await Product.findById(id);
         if (!product) return res.status(404).json({ message: "Product not found" });
 
-        const updateData = { ...req.params.body }; 
+        const updateData = { ...req.params.body };
 
         if (req.body.price !== undefined) updateData.price = Number(req.body.price) || 0;
         if (req.body.profitMargin !== undefined) updateData.profitMargin = Number(req.body.profitMargin) || 0;
         if (req.body.profitSharingModel !== undefined) updateData.profitSharingModel = Number(req.body.profitSharingModel) || 0;
-        
+
         if (req.body.portal) updateData.portal = req.body.portal.toUpperCase();
 
         if (req.body.details) updateData.details = safeParse(req.body.details, "{}");
         if (req.body.tags) updateData.tags = safeParse(req.body.tags, "[]");
-        
+
         if (req.body.more_information) {
             const moreInfo = safeParse(req.body.more_information, "{}");
-            updateData.more_information = { 
-                ...moreInfo, 
-                weight: Number(moreInfo.weight) || 0 
+            updateData.more_information = {
+                ...moreInfo,
+                weight: Number(moreInfo.weight) || 0
             };
         }
 
@@ -245,7 +251,7 @@ export const deleteProduct = async (req, res) => {
         product.imgs_src.forEach(path => deletePhysicalFile(path));
         deletePhysicalFile(product.lab_test_img_src);
         deletePhysicalFile(product.certificate_img_src);
-        
+
         await Product.findByIdAndDelete(id);
 
         res.status(200).json({ message: "Product and files deleted!" });
