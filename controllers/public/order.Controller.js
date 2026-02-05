@@ -37,11 +37,11 @@ export const orderBook = async (req, res) => {
 
             validatedItems.push({
                 product: product._id,
-                price: product.price,
+                price: product.publicPrice,
                 investment: investment ? investment._id : null
             });
 
-            productsSum += product.price;
+            productsSum += product.publicPrice;
         }
 
         const totalAmount = productsSum;
@@ -136,18 +136,20 @@ export const updateOrderStatus = async (req, res) => {
 
                 for (const item of order.items) {
                     if (item.investment) {
-                        const inv = await Investment.findById(item.investment).session(session);
+                        const inv = await Investment.findOne({ _id: item.investment, status: 'ACTIVE' }).session(session);
 
-                        if (inv && inv.status === 'ACTIVE') {
-                            // Update Investor's Wallet and Metrics
+                        if (inv) {
+                            const pureGain = inv.totalExpectedReturn - inv.investmentAmount;
+
                             await User.findByIdAndUpdate(inv.user, {
                                 $inc: {
+                                    "investor.balance": inv.totalExpectedReturn, 
                                     "investor.totalEarnings": inv.totalExpectedReturn,
+                                    "investor.pureProfit": pureGain,
                                     "investor.totalInvestment": -inv.investmentAmount
                                 }
                             }, { session });
 
-                            // Close out the investment
                             inv.status = 'COMPLETED';
                             await inv.save({ session });
                         }

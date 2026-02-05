@@ -32,6 +32,7 @@ const investmentSchema = new mongoose.Schema({
 
     estimatedProfit: { type: Number, required: true },
     totalExpectedReturn: { type: Number, required: true },
+    pureProfit: { type: Number, default: 0 },
     sharingPercentage: {
         type: Number, 
         min: 0,

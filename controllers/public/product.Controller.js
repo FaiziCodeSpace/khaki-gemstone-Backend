@@ -186,7 +186,7 @@ export const updateProduct = async (req, res) => {
         const product = await Product.findById(id);
         if (!product) return res.status(404).json({ message: "Product not found" });
 
-        const updateData = { ...req.params.body };
+        const updateData = { ...req.body };
 
         if (req.body.price !== undefined) updateData.price = Number(req.body.price) || 0;
         if (req.body.profitMargin !== undefined) updateData.profitMargin = Number(req.body.profitMargin) || 0;

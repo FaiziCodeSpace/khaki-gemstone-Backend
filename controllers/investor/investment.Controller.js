@@ -58,7 +58,7 @@ export const investInProduct = async (req, res) => {
 
     // ATOMIC UPDATE: Use $inc and $push instead of manual calculation
     await User.findByIdAndUpdate(userId, {
-      $inc: { 
+      $inc: {
         "investor.balance": -actualCost,
         "investor.totalInvestment": actualCost // Incrementing total active capital
       },
@@ -105,9 +105,9 @@ export const refundInvestment = async (req, res) => {
     if (activeOrder) throw new Error("Cannot refund. Product is currently in an active order.");
 
     await User.findByIdAndUpdate(userId, {
-      $inc: { 
+      $inc: {
         "investor.balance": investment.investmentAmount,
-        "investor.totalInvestment": -investment.investmentAmount 
+        "investor.totalInvestment": -investment.investmentAmount
       },
       $pull: { "investor.productsInvested": { product: investment.product } }
     }, { session });
@@ -152,13 +152,16 @@ export const getInvestorInvestments = async (req, res) => {
 export const getInvestorPersonalMetrics = async (req, res) => {
   try {
     const userId = req.user.id;
-
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // 1. Get stats for active and completed investments to find the total capital deployed
     const stats = await Investment.aggregate([
-      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+      { 
+        $match: { 
+          user: new mongoose.Types.ObjectId(userId), 
+          status: { $in: ["ACTIVE", "COMPLETED"] } 
+        } 
+      },
       {
         $group: {
           _id: null,
@@ -169,20 +172,18 @@ export const getInvestorPersonalMetrics = async (req, res) => {
     ]);
 
     const investmentData = stats[0] || { activeCount: 0, totalPrincipalDeployed: 0 };
-    
-    // 2. Financial Calculations
-    const totalEarnings = user.investor?.totalEarnings || 0; // Total Revenue (Principal + Profit)
-    const activeInvestment = user.investor?.totalInvestment || 0; // Current active capital
-    
-    const soldPrincipal = investmentData.totalPrincipalDeployed - activeInvestment;
-    const pureProfit = totalEarnings - soldPrincipal;
 
-    // 3. Trend: (Pure Profit / Total Deployed) * 100
-    const trendPercentage = investmentData.totalPrincipalDeployed > 0
-      ? ((pureProfit / investmentData.totalPrincipalDeployed) * 100).toFixed(0)
+    // Use the new stored pureProfit field
+    const pureProfit = user.investor?.pureProfit || 0;
+    const totalEarnings = user.investor?.totalEarnings || 0; // Total Revenue
+    const activeInvestment = user.investor?.totalInvestment || 0;
+
+    // 3. Trend: (Actual Profit / Everything ever spent)
+    // This now shows real growth (e.g., 10%) rather than payout ratio (e.g., 110%)
+    const trendValue = investmentData.totalPrincipalDeployed > 0
+      ? (pureProfit / investmentData.totalPrincipalDeployed) * 100
       : 0;
-
-    res.status(200).json({
+      res.status(200).json({
       success: true,
       data: {
         firstName: user.firstName,
@@ -191,7 +192,7 @@ export const getInvestorPersonalMetrics = async (req, res) => {
         totalInvestment: activeInvestment,
         pureProfit: pureProfit,
         profitFromSold: totalEarnings, 
-        trend: `+${trendPercentage}%` 
+        trend: `${trendValue >= 0 ? '+' : ''}${trendValue.toFixed(0)}%`
       }
     });
   } catch (error) {
