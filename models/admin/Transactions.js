@@ -18,7 +18,7 @@ const transactionSchema = new mongoose.Schema(
         },
         source: {
             type: String,
-            enum: ["SOFT_WALLET", "BANK_TRANSFER", "CREDIT_CARD", "JAZZ_CASH", "EASY_PAISA", "COD"],
+            enum: ["SOFT_WALLET", "BANK_TRANSFER", "CREDIT_CARD", "JAZZ_CASH", "EASY_PAISA", "COD", "PAYFAST"],
         },
         type: {
             type: String,

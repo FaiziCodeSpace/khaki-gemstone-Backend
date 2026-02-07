@@ -23,7 +23,7 @@ export const orderBook = async (req, res) => {
                     isActive: true,
                     status: { $in: ["Available", "For Sale"] }
                 },
-                { isActive: false, status: "Sold" },
+                { isActive: false, status: "Reserved" },
                 { new: true, session }
             );
 
@@ -77,6 +77,7 @@ export const orderBook = async (req, res) => {
         await session.commitTransaction();
 
         if (paymentMethod === "PAYFAST") {
+            console.log("payfast");
             const payfastData = {
                 merchant_id: process.env.PAYFAST_MERCHANT_ID || '10000100',
                 merchant_key: process.env.PAYFAST_MERCHANT_KEY || '46f0cd694581a',
@@ -135,15 +136,23 @@ export const updateOrderStatus = async (req, res) => {
                 order.deliveredAt = Date.now();
 
                 for (const item of order.items) {
+                    await Product.findByIdAndUpdate(
+                        item.product,
+                        { status: "Sold", isActive: false },
+                        { session }
+                    );
+
                     if (item.investment) {
-                        const inv = await Investment.findOne({ _id: item.investment, status: 'ACTIVE' }).session(session);
+                        const inv = await Investment.findOne({
+                            _id: item.investment,
+                            status: 'ACTIVE'
+                        }).session(session);
 
                         if (inv) {
                             const pureGain = inv.totalExpectedReturn - inv.investmentAmount;
 
                             await User.findByIdAndUpdate(inv.user, {
                                 $inc: {
-                                    "investor.balance": inv.totalExpectedReturn, 
                                     "investor.totalEarnings": inv.totalExpectedReturn,
                                     "investor.pureProfit": pureGain,
                                     "investor.totalInvestment": -inv.investmentAmount

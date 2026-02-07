@@ -116,6 +116,9 @@ export const getDashboardMetrics = async () => {
       totalProducts,
       totalOrders: o.totalOrders[0]?.count || 0,
       ordersRevenue: o.revenue[0]?.total || 0,
+      newOrders: o.newOrders[0]?.count || 0,
+      dispatchedOrders: o.dispatchedOrders[0]?.count || 0, 
+      totalCustomers: o.customers[0]?.total || 0,
       
       // Collective Investment Metrics
       totalInvestmentsCount: i.counts[0]?.total || 0,
