@@ -6,6 +6,7 @@ import Transaction from "../../models/admin/Transactions.js";
 import User from "../../models/users/User.js";
 import Investment from "../../models/investment/Investments.js";
 import { generatePayfastSignature } from "../../utils/payfast.js";
+import Cart from "../../models/public/Cart.js";
 
 export const orderBook = async (req, res) => {
     const session = await mongoose.startSession();
@@ -17,6 +18,7 @@ export const orderBook = async (req, res) => {
         let productsSum = 0;
 
         for (const item of items) {
+            // 1. Find and lock the product
             const product = await Product.findOneAndUpdate(
                 {
                     _id: item.product,
@@ -27,9 +29,11 @@ export const orderBook = async (req, res) => {
                 { new: true, session }
             );
 
-            if (!product) throw new Error("One or more items are unavailable");
+            if (!product) {
+                throw new Error(`Item ${item.product} is no longer available.`);
+            }
 
-            // LINK: Check if an investor backed this product
+            // 2. Check for investment link
             const investment = await Investment.findOne({
                 product: product._id,
                 status: 'ACTIVE'
@@ -37,17 +41,17 @@ export const orderBook = async (req, res) => {
 
             validatedItems.push({
                 product: product._id,
-                price: product.publicPrice,
+                price: product.publicPrice || product.price,
                 investment: investment ? investment._id : null
             });
 
-            productsSum += product.publicPrice;
+            productsSum += (product.publicPrice || product.price);
         }
 
-        const totalAmount = productsSum;
         const orderNumber = `ORD-${uuidv4().split("-")[0].toUpperCase()}`;
-        const userId = req.user ? req.user._id : null;
+        const userId = req.user ? (req.user._id || req.user.id) : null;
 
+        // 3. Create the Order
         const [order] = await Order.create(
             [{
                 orderNumber,
@@ -55,7 +59,7 @@ export const orderBook = async (req, res) => {
                 customer,
                 shippingAddress,
                 items: validatedItems,
-                totalAmount,
+                totalAmount: productsSum,
                 totalQuantity: validatedItems.length,
                 paymentMethod,
                 status: "PENDING",
@@ -64,11 +68,12 @@ export const orderBook = async (req, res) => {
             { session }
         );
 
+        // 4. Create the Transaction record
         await Transaction.create([{
             user: userId,
             source: paymentMethod,
             type: "GEMSTONE_PURCHASE",
-            amount: totalAmount,
+            amount: productsSum,
             order: order._id,
             products: validatedItems.map(i => i.product),
             status: "PENDING"
@@ -76,27 +81,48 @@ export const orderBook = async (req, res) => {
 
         await session.commitTransaction();
 
+        try {
+            const purchasedProductIds = validatedItems.map(i => i.product);
+            await Cart.updateMany(
+                { items: { $in: purchasedProductIds } }, 
+                { $pull: { items: { $in: purchasedProductIds } } }
+            );
+        } catch (cleanupErr) {
+            console.error("Non-critical: Global cart pull failed", cleanupErr);
+        }
+        const successResponse = {
+            type: 'SUCCESS',
+            order,
+            message: "Order placed successfully"
+        };
+
         if (paymentMethod === "PAYFAST") {
-            console.log("payfast");
             const payfastData = {
                 merchant_id: process.env.PAYFAST_MERCHANT_ID || '10000100',
                 merchant_key: process.env.PAYFAST_MERCHANT_KEY || '46f0cd694581a',
                 return_url: `${process.env.FRONTEND_URL}/payment/success`,
                 cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
                 notify_url: `${process.env.BACKEND_URL}/api/orders/payfast-itn`,
-                name_first: customer.name,
+                name_first: customer.name.split(" ")[0],
                 m_payment_id: order.orderNumber,
-                amount: totalAmount.toFixed(2),
+                amount: productsSum.toFixed(2),
                 item_name: `Order ${order.orderNumber}`
             };
+
             const signature = generatePayfastSignature(payfastData, process.env.PAYFAST_PASSPHRASE);
-            return res.status(201).json({ order, payfast: { ...payfastData, signature, url: "https://sandbox.payfast.co.za/eng/process" } });
+            
+            return res.status(201).json({ 
+                ...successResponse, 
+                payfast: { ...payfastData, signature, url: "https://sandbox.payfast.co.za/eng/process" } 
+            });
         }
 
-        res.status(201).json(order);
+        return res.status(201).json(successResponse);
+
     } catch (error) {
-        await session.abortTransaction();
-        res.status(500).json({ message: error.message });
+        if (session.inAtomTransaction()) await session.abortTransaction();
+        console.error("Checkout Final Error:", error);
+        res.status(500).json({ type: 'ERROR', message: error.message });
     } finally {
         session.endSession();
     }
