@@ -3,16 +3,14 @@ import Cart from "../../models/public/Cart.js";
 export const getCart = async (req, res) => {
   try {
     const userId = req.user.id;
-    // Populate is essential for virtuals to be calculated in the response
     const cart = await Cart.findOne({ userId }).populate("items");
 
-    if (!cart) {
-      return res.status(200).json([]);
-    }
+    if (!cart) return res.status(200).json([]);
 
-    res.status(200).json(cart.items);
+    const availableItems = cart.items.filter(item => item.isActive !== false);
+    res.status(200).json(availableItems);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching cart", error: error.message });
+    res.status(500).json({ message: "Error fetching cart" });
   }
 };
 
@@ -49,3 +47,24 @@ export const removeFromCart = async (req, res) => {
     res.status(500).json({ message: "Error removing from cart", error: error.message });
   }
 };
+
+export const clearCart = async (req, res) => {
+    try {
+        const id = req.user._id; 
+        const updatedCart = await Cart.findOneAndUpdate(
+            { userId: id }, 
+            { $set: { items: [] } }, 
+            { new: true }
+        );
+
+        if (!updatedCart) {
+            return res.status(404).json({ message: "Cart not found" });
+        }
+
+        res.status(200).json({ message: "Cart cleared", items: [] });
+    } catch (error) {
+        console.error("Clear Cart Error:", error);
+        res.status(500).json({ message: "Failed to clear cart" });
+    }
+};
+
