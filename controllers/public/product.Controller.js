@@ -26,6 +26,11 @@ export const getAllProducts = async (req, res) => {
             mongoFilter.status = { $in: ["Available", "For Sale"] };
         }
 
+        if (portal?.toUpperCase() === 'PUBLIC') {
+            mongoFilter.isActive = true;
+            mongoFilter.status = { $in: ["Available", "For Sale"] };
+        }
+        
         if (limited === 'true') mongoFilter.isLimitedProduct = true;
         if (limited === 'false') mongoFilter.isLimitedProduct = false;
 

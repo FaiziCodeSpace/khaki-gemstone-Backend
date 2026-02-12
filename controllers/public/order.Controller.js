@@ -84,7 +84,7 @@ export const orderBook = async (req, res) => {
         try {
             const purchasedProductIds = validatedItems.map(i => i.product);
             await Cart.updateMany(
-                { items: { $in: purchasedProductIds } }, 
+                { items: { $in: purchasedProductIds } },
                 { $pull: { items: { $in: purchasedProductIds } } }
             );
         } catch (cleanupErr) {
@@ -110,10 +110,10 @@ export const orderBook = async (req, res) => {
             };
 
             const signature = generatePayfastSignature(payfastData, process.env.PAYFAST_PASSPHRASE);
-            
-            return res.status(201).json({ 
-                ...successResponse, 
-                payfast: { ...payfastData, signature, url: "https://sandbox.payfast.co.za/eng/process" } 
+
+            return res.status(201).json({
+                ...successResponse,
+                payfast: { ...payfastData, signature, url: "https://sandbox.payfast.co.za/eng/process" }
             });
         }
 
@@ -122,6 +122,115 @@ export const orderBook = async (req, res) => {
     } catch (error) {
         if (session.inAtomTransaction()) await session.abortTransaction();
         console.error("Checkout Final Error:", error);
+        res.status(500).json({ type: 'ERROR', message: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
+export const sellInShop = async (req, res) => {
+    const session = await mongoose.startSession();
+    try {
+        session.startTransaction();
+
+        const { customer, items, paymentMethod } = req.body;
+
+        const validatedItems = [];
+        let totalSum = 0;
+
+        for (const item of items) {
+            // 1. Find and mark product as Sold immediately
+            const product = await Product.findOneAndUpdate(
+                {
+                    _id: item.product,
+                    isActive: true,
+                    status: { $in: ["Available", "For Sale"] }
+                },
+                {
+                    isActive: false,
+                    status: "Sold"
+                },
+                { new: true, session }
+            );
+
+            if (!product) {
+                throw new Error(`Product ${item.product} is not available.`);
+            }
+
+            // 2. Check for Investment and handle Payout logic
+            const inv = await Investment.findOne({
+                product: product._id,
+                status: 'ACTIVE'
+            }).session(session);
+
+            if (inv) {
+                // Same logic as your updateOrderStatus 'DELIVERED' block
+                const pureGain = inv.totalExpectedReturn - inv.investmentAmount;
+
+                await User.findByIdAndUpdate(inv.user, {
+                    $inc: {
+                        "investor.totalEarnings": inv.totalExpectedReturn,
+                        "investor.pureProfit": pureGain,
+                        "investor.totalInvestment": -inv.investmentAmount
+                    }
+                }, { session });
+
+                inv.status = 'COMPLETED';
+                await inv.save({ session });
+            }
+
+            const salePrice = product.publicPrice || product.price;
+
+            validatedItems.push({
+                product: product._id,
+                price: salePrice,
+                investment: inv ? inv._id : null
+            });
+
+            totalSum += salePrice;
+        }
+
+        const orderNumber = `SHOP-${uuidv4().split("-")[0].toUpperCase()}`;
+
+        // 3. Create the Order (Directly set to PAID and DELIVERED)
+        const [order] = await Order.create(
+            [{
+                orderNumber,
+                customer,
+                shippingAddress: { address: "In-Shop Purchase", city: "Local Counter" },
+                items: validatedItems,
+                totalAmount: totalSum,
+                totalQuantity: validatedItems.length,
+                paymentMethod: paymentMethod || "CASH",
+                status: "DELIVERED",
+                isPaid: true,
+                paidAt: new Date(),
+                deliveredAt: new Date()
+            }],
+            { session }
+        );
+
+        // 4. Create the Transaction record (Marked as SUCCESS)
+        await Transaction.create([{
+            source: paymentMethod || "CASH",
+            type: "GEMSTONE_PURCHASE",
+            amount: totalSum,
+            order: order._id,
+            products: validatedItems.map(i => i.product),
+            status: "SUCCESS"
+        }], { session });
+
+        await session.commitTransaction();
+
+        res.status(201).json({
+            type: 'SUCCESS',
+            message: "In-shop sale completed and investor earnings updated.",
+            order
+        });
+
+    } catch (error) {
+        if (session.inAtomTransaction()) await session.abortTransaction();
+        console.error("In-Shop Sale Error:", error);
         res.status(500).json({ type: 'ERROR', message: error.message });
     } finally {
         session.endSession();
