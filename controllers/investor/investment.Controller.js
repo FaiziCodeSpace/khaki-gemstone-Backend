@@ -175,7 +175,7 @@ export const getInvestorPersonalMetrics = async (req, res) => {
 
     // Use the new stored pureProfit field
     const pureProfit = user.investor?.pureProfit || 0;
-    const totalEarnings = user.investor?.totalEarnings || 0; // Total Revenue
+    const totalEarnings = user.investor?.totalEarnings || 0; 
     const activeInvestment = user.investor?.totalInvestment || 0;
 
     // 3. Trend: (Actual Profit / Everything ever spent)
