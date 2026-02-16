@@ -24,8 +24,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+// Change this:
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: process.env.FRONTEND_URL || "http://localhost:5173", // Use environment variable
     credentials: true
 }));
 
