@@ -13,8 +13,6 @@ export const requestPayout = async (req, res) => {
   try {
     const userId = req.user.id;
     const { method, accountDetails } = req.body;
-
-    // 1. Security Check: Prevent multiple active requests
     const activePayout = await Payout.findOne({
       investorId: userId,
       status: { $in: ['pending', 'processing'] }
@@ -26,8 +24,6 @@ export const requestPayout = async (req, res) => {
         message: "You already have a payout request in progress. Please wait for it to complete."
       });
     }
-
-    // 2. Fetch User & Verify Balance
     const user = await User.findById(userId).session(session);
     if (!user) throw new Error("User not found");
 
@@ -40,7 +36,6 @@ export const requestPayout = async (req, res) => {
       });
     }
 
-    // 3. Create Payout Record
     const newPayout = new Payout({
       investorId: userId,
       method,
@@ -79,7 +74,7 @@ export const getAllPayoutRequests = async (req, res) => {
     if (investorId) query.investorId = investorId;
 
     const payouts = await Payout.find(query)
-      .populate('investorId', 'firstName lastName email investor.totalEarnings') 
+      .populate('investorId', 'firstName lastName email investor.phone investor.totalEarnings') 
       .sort({ createdAt: -1 }) 
       .limit(limit * 1)
       .skip((page - 1) * limit)
@@ -137,7 +132,6 @@ export const updatePayoutStatus = async (req, res) => {
       await user.save({ session });
     }
 
-    // Update payout document
     payout.status = status;
     payout.processedAt = status === 'completed' ? Date.now() : undefined;
     await payout.save({ session });

@@ -45,7 +45,7 @@ app.get('/', (req, res) => {
 app.use("/api/auth", authRoute);
 // --- DASHBOARD (Public for now) ---
 app.use("/api/admin", dashboardRoute);
-// 
+// AdminRoute includes both admin auth and payout management routes
 app.use("/api/admin", adminRoute); 
 // TransactionsLog
 app.use("/api/transactions", transactionRoute);
