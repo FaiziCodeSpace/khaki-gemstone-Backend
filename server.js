@@ -23,10 +23,8 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-// Change this:
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173", // Use environment variable
+    origin: ["https://khakigemstone.com", "https://www.khakigemstone.com", "https://76.13.191.215"],
     credentials: true
 }));
 
