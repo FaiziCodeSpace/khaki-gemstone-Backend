@@ -30,7 +30,7 @@ export const getAllProducts = async (req, res) => {
             mongoFilter.isActive = true;
             mongoFilter.status = { $in: ["Available", "For Sale"] };
         }
-        
+
         if (limited === 'true') mongoFilter.isLimitedProduct = true;
         if (limited === 'false') mongoFilter.isLimitedProduct = false;
 
@@ -172,6 +172,9 @@ export const createProduct = async (req, res) => {
             tags,
             imgs_src: []
         });
+        if (!newProduct.productNumber) {
+            return res.status(400).json({ error: "Product Number is required." });
+        }
 
         if (req.files && Object.keys(req.files).length > 0) {
             await handleFileUploads(req.files, newProduct.productNumber, newProduct);
