@@ -56,7 +56,7 @@ export const register = async (req, res) => {
     } else {
       if (!password) return res.status(400).json({ message: "Password is required for new users" });
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 12);
       user = await User.create({
         firstName,
         lastName,
@@ -288,7 +288,7 @@ export const getUsers = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({
-      success: false,
+      success:  process.env.NODE_ENV === "development" ? false : true,
       message: "Failed to fetch data",
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
@@ -322,8 +322,8 @@ export const adminLogin = async (req, res) => {
     // 5. Set Cookie
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
+      secure: process.env.NODE_ENV === "development" ? false : true,
+      sameSite: "Lax",
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 Days
     });
@@ -369,7 +369,7 @@ export const refreshAccessToken = async (req, res) => {
 export const adminLogout = (req, res) => {
   res.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: false,
+    secure: true,
     sameSite: 'Lax',
   });
   res.status(200).json({ message: "Logged out successfully" });
