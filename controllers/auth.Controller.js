@@ -322,9 +322,10 @@ export const adminLogin = async (req, res) => {
     // 5. Set Cookie
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', 
-      sameSite: 'Lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: true,
+      sameSite: 'Strict',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 Days
     });
 
     res.status(200).json({
@@ -333,10 +334,10 @@ export const adminLogin = async (req, res) => {
       admin: { id: admin._id, name: admin.name, role: admin.role }
     });
   } catch (error) {
-    console.error("LOGIN_ERROR:", error); // <--- LOG THIS TO SEE THE ACTUAL ERROR IN TERMINAL
+    console.error("LOGIN_ERROR:", error);
     res.status(500).json({ message: "Server error during login", error: error.message });
   }
-}; 
+};
 
 // Refresh Access Token
 export const refreshAccessToken = async (req, res) => {
@@ -368,8 +369,8 @@ export const refreshAccessToken = async (req, res) => {
 export const adminLogout = (req, res) => {
   res.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: false,      // Change to false for localhost HTTP
-    sameSite: 'Lax',    // Use Lax for localhost
+    secure: false,
+    sameSite: 'Lax',
   });
   res.status(200).json({ message: "Logged out successfully" });
 };
