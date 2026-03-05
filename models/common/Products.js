@@ -31,7 +31,7 @@ const productSchema = new mongoose.Schema({
   },
 
   more_information: {
-    weight: Number,
+    weight: String,
     origin: String,
     treatment: String,
     refractive_index: String

@@ -167,7 +167,7 @@ export const createProduct = async (req, res) => {
             details,
             more_information: {
                 ...more_information,
-                weight: Number(more_information.weight) || 0
+                weight: moreInfo.weight
             },
             tags,
             imgs_src: []
@@ -209,7 +209,7 @@ export const updateProduct = async (req, res) => {
             const moreInfo = safeParse(req.body.more_information, "{}");
             updateData.more_information = {
                 ...moreInfo,
-                weight: Number(moreInfo.weight) || 0
+                weight: moreInfo.weight
             };
         }
 

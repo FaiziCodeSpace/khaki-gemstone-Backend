@@ -16,13 +16,12 @@ export const generateAccessAndRefreshTokens = (adminId, role) => {
   );
 
   const refreshToken = jwt.sign(
-    { id: adminId }, 
+    { id: adminId, role }, 
     process.env.REFRESH_TOKEN_SECRET, 
     { expiresIn: '7d' }
   );
 
   return { accessToken, refreshToken };
 };
-
 
 export default generateToken;
