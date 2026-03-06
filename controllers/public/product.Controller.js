@@ -154,24 +154,28 @@ const handleFileUploads = async (files, pNum, productObj) => {
 export const createProduct = async (req, res) => {
     try {
         const details = safeParse(req.body.details, "{}");
-        const more_information = safeParse(req.body.more_information, "{}");
+        const moreInfo = safeParse(req.body.more_information, "{}");
         const tags = safeParse(req.body.tags, "[]");
 
         const newProduct = new Product({
-            ...req.body,
+            productNumber: req.body.productNumber,
+            name: req.body.name,
+            description: req.body.description,
+            gem_size: req.body.gem_size,
+            location: req.body.location,
+
             price: Number(req.body.price) || 0,
             profitMargin: Number(req.body.profitMargin) || 0,
             profitSharingModel: Number(req.body.profitSharingModel) || 0,
 
             portal: req.body.portal?.toUpperCase(),
             details,
-            more_information: {
-                ...more_information,
-                weight: moreInfo.weight
-            },
+            more_information: moreInfo,
             tags,
+
             imgs_src: []
         });
+
         if (!newProduct.productNumber) {
             return res.status(400).json({ error: "Product Number is required." });
         }
@@ -182,6 +186,7 @@ export const createProduct = async (req, res) => {
 
         const savedProduct = await newProduct.save();
         res.status(201).json(savedProduct);
+
     } catch (error) {
         console.error("CREATE ERROR:", error);
         res.status(500).json({ error: error.message });

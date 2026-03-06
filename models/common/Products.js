@@ -24,7 +24,7 @@ const productSchema = new mongoose.Schema({
   gem_size: String,
 
   details: {
-    gemstone: { type: String, required: true },
+    gemstone: String,
     cut_type: String,
     color: String,
     clarity: String
