@@ -15,6 +15,7 @@ import dashboardRoute from "./routes/dashboardMatrics.routes.js";
 import orderRoute from "./routes/order.routes.js";
 import transactionRoute from "./routes/transactionsLog.routes.js";
 import investorRoutes from "./routes/investor.routes.js";
+import stampRoute from "./routes/stamp.routes.js";
 
 // CONFIGURATION 
 dotenv.config();
@@ -55,6 +56,7 @@ app.use("/api", productRoute);
 app.use("/api", cartFavRoute);
 app.use("/api/taxonomy", taxonomyControl);
 app.use("/api", orderRoute);
+app.use("/api/stamps", stampRoute);
 
 // INVESTOR ROUTES
 app.use("/api/investor", investorRoutes);
