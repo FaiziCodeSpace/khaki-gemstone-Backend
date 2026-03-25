@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-const ACCESS_SECRET = process.env.AGENT_ACCESS_SECRET || process.env.JWT_SECRET;
+const ACCESS_SECRET = process.env.ACCESS_TOKEN_SECRET;
 
 export const protectAgent = (req, res, next) => {
   const authHeader = req.headers.authorization;
