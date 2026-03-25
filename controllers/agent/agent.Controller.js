@@ -27,6 +27,29 @@ const agentPublic = (agent) => ({
   status:        agent.status,
 });
 
+// Helper to format Mongoose/MongoDB errors for the frontend
+const handleMongooseError = (err, res) => {
+  // Mongoose Validation Error (e.g., required field missing, regex fail)
+  if (err.name === "ValidationError") {
+    const messages = Object.values(err.errors).map((val) => val.message);
+    return res.status(400).json({ success: false, message: messages.join(", "), errors: err.errors });
+  }
+
+  // MongoDB Duplicate Key Error (e.g., unique: true constraint violated)
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];
+    return res.status(409).json({ success: false, message: `Duplicate value for ${field}. Please use another.` });
+  }
+
+  // Cast Error (e.g., invalid ObjectId)
+  if (err.name === "CastError") {
+    return res.status(400).json({ success: false, message: `Invalid ${err.path}: ${err.value}` });
+  }
+
+  // Fallback for other errors
+  return res.status(500).json({ success: false, message: err.message });
+};
+
 // ── POST /api/agents/create  (Admin only) ───────────────────────────
 export const createAgent = async (req, res) => {
   try {
@@ -46,7 +69,7 @@ export const createAgent = async (req, res) => {
       agent:   agentPublic(agent),
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleMongooseError(err, res);
   }
 };
 
@@ -74,7 +97,7 @@ export const loginAgent = async (req, res) => {
 
     return res.status(200).json({ success: true, accessToken, agent: agentPublic(agent) });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleMongooseError(err, res);
   }
 };
 
@@ -107,7 +130,7 @@ export const refreshAgentToken = async (req, res) => {
 
     const accessToken = signAccess(agent._id);
     return res.status(200).json({ success: true, accessToken, agent: agentPublic(agent) });
-  } catch {
+  } catch (err) {
     return res.status(401).json({ success: false, message: "Token expired or invalid" });
   }
 };
@@ -122,11 +145,11 @@ export const updateStatus = async (req, res) => {
     const agent = await Agent.findByIdAndUpdate(
       req.agentId,
       { status },
-      { new: true, select: "-password" }
+      { new: true, runValidators: true, select: "-password" }
     );
     return res.status(200).json({ success: true, agent: agentPublic(agent) });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleMongooseError(err, res);
   }
 };
 
@@ -137,7 +160,7 @@ export const getMe = async (req, res) => {
     if (!agent) return res.status(404).json({ success: false, message: "Not found" });
     return res.status(200).json({ success: true, agent: agentPublic(agent) });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleMongooseError(err, res);
   }
 };
 
@@ -147,24 +170,17 @@ export const listAgents = async (req, res) => {
     const agents = await Agent.find().select("-password").sort({ createdAt: -1 });
     return res.status(200).json({ success: true, agents });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleMongooseError(err, res);
   }
 };
 
 // ── POST /api/agents/vehicle-images  (agent only) ───────────────────
-// Receives: multipart/form-data
-//   chassis  → file, field name "chassis"
-//   car      → file, field name "car"
-//   engine   → file, field name "engine"
-//   chassisNo, regNo, engineNo → body strings (used as filenames)
-//
 export const uploadVehicleImages = async (req, res) => {
   try {
     const { chassisNo, regNo, engineNo } = req.body;
     const files  = req.files || {};
     const result = {};
 
-    // Helper — rename uploaded file to the desired name
     const renameFile = (file, desiredName, folder) => {
       if (!file) return null;
       const ext     = path.extname(file.originalname) || ".jpg";
@@ -186,6 +202,6 @@ export const uploadVehicleImages = async (req, res) => {
     return res.status(200).json({ success: true, files: result });
   } catch (err) {
     console.error("[vehicleImages]", err);
-    return res.status(500).json({ success: false, message: err.message });
+    return handleMongooseError(err, res);
   }
 };
