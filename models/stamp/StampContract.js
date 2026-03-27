@@ -10,45 +10,61 @@ const stampContractSchema = new mongoose.Schema(
     carModel:   { type: String, trim: true },
     carColor:   { type: String, trim: true },
     engineNo:   { type: String, trim: true },
- 
+
     // Parties
-    sellerName:   { type: String, trim: true },
-    sellerCnic:   { type: String, trim: true },
-    sellerTehsil: { type: String, trim: true },
-    buyerName:    { type: String, trim: true },
-    buyerCnic:    { type: String, trim: true },
-    buyerTehsil:  { type: String, trim: true },
- 
+    sellerName:    { type: String, trim: true },
+    sellerFather:  { type: String, trim: true },
+    sellerMohalla: { type: String, trim: true },
+    sellerCnic:    { type: String, trim: true },
+    sellerTehsil:  { type: String, trim: true },
+    buyerName:     { type: String, trim: true },
+    buyerFather:   { type: String, trim: true },
+    buyerMohalla:  { type: String, trim: true },
+    buyerCnic:     { type: String, trim: true },
+    buyerTehsil:   { type: String, trim: true },
+
     // Payment
-    paymentMode:  { type: String, enum: ["full", "advance"], default: "full" },
-    priceNum:     { type: String, trim: true },
-    priceWords:   { type: String, trim: true },
-    advanceNum:   { type: String, trim: true },
-    remainingNum: { type: String, trim: true },
-    dueDate:      { type: String, trim: true },
- 
+    paymentMode:    { type: String, enum: ["full", "advance"], default: "full" },
+    priceNum:       { type: String, trim: true },
+    priceWords:     { type: String, trim: true },
+    advanceNum:     { type: String, trim: true },
+    advanceWords:   { type: String, trim: true },
+    remainingNum:   { type: String, trim: true },
+    remainingWords: { type: String, trim: true },
+    dueDate:        { type: String, trim: true },
+
+    // ── NEW: dynamic fields ──
+    // Full free-text for the "remaining payment + document" clause in advance mode
+    remainingClause: { type: String, trim: true, default: "" },
+    // Number plate text (e.g. "دو عدد نمبر پلیٹ" or "ایک عدد نمبر پلیٹ" or blank)
+    numberPlate:     { type: String, trim: true, default: "دو عدد نمبر پلیٹ" },
+    // Extra conditions appended at the bottom of the contract
+    conditions:      { type: String, trim: true, default: "" },
+
     // Witnesses
-    witness1Name: { type: String, trim: true },
-    witness1Cnic: { type: String, trim: true },
-    witness2Name: { type: String, trim: true },
-    witness2Cnic: { type: String, trim: true },
- 
+    witness1Name:   { type: String, trim: true },
+    witness1Cnic:   { type: String, trim: true },
+    witness1Tehsil: { type: String, trim: true },
+    witness2Name:   { type: String, trim: true },
+    witness2Cnic:   { type: String, trim: true },
+    witness2Tehsil: { type: String, trim: true },
+
     // Contract date
     date: { type: String, trim: true },
- 
+
     // PDF
     pdfPath: { type: String, required: true },
     pdfUrl:  { type: String, required: true },
- 
-    // ── Vehicle images ──
+
+    // Vehicle images
     chassisImgPath: { type: String, default: "" },
     chassisImgUrl:  { type: String, default: "" },
     carImgPath:     { type: String, default: "" },
     carImgUrl:      { type: String, default: "" },
     engineImgPath:  { type: String, default: "" },
     engineImgUrl:   { type: String, default: "" },
- 
-    // ── Fingerprint images ──
+
+    // Fingerprint images
     sellerFpPath:   { type: String, default: "" },
     sellerFpUrl:    { type: String, default: "" },
     buyerFpPath:    { type: String, default: "" },
@@ -61,7 +77,6 @@ const stampContractSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Compound text index for flexible search
 stampContractSchema.index(
   { chassisNo: "text", modelYear: "text", regNo: "text", sellerName: "text", buyerName: "text" },
   { name: "stamp_search_index" }

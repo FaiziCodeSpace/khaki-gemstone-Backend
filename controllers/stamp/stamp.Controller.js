@@ -1,20 +1,6 @@
 // controllers/stamp/stamp.Controller.js
-import path from "path";
-import fs from "fs";
 import StampContract from "../../models/stamp/StampContract.js";
 
-// ── POST /api/stamps/upload ──────────────────────────────────────────
-// Receives multipart/form-data:
-//   pdf          — the contract PDF
-//   chassisImg   — chassis photo (optional)
-//   carImg       — car photo (optional)
-//   engineImg    — engine photo (optional)
-//   sellerFp     — seller fingerprint (optional)
-//   buyerFp      — buyer fingerprint (optional)
-//   witness1Fp   — witness 1 fingerprint (optional)
-//   witness2Fp   — witness 2 fingerprint (optional)
-//   metadata     — JSON string of all contract fields
-//
 export const uploadStampContract = async (req, res) => {
   try {
     if (!req.files?.pdf?.[0]) {
@@ -31,48 +17,61 @@ export const uploadStampContract = async (req, res) => {
     const pdfPath = pdfFile.path;
     const pdfUrl  = `${baseUrl}/uploads/stamps/${pdfFile.filename}`;
 
-    // Helper to get path + url for optional image files
     const imgInfo = (fieldName, folder) => {
       const f = files[fieldName]?.[0];
       if (!f) return { path: "", url: "" };
-      return {
-        path: f.path,
-        url:  `${baseUrl}/uploads/${folder}/${f.filename}`,
-      };
+      return { path: f.path, url: `${baseUrl}/uploads/${folder}/${f.filename}` };
     };
 
-    const chassis   = imgInfo("chassisImg",  "chassis");
-    const car       = imgInfo("carImg",      "car");
-    const engine    = imgInfo("engineImg",   "engine");
-    const sellerFp  = imgInfo("sellerFp",    "fingerprints");
-    const buyerFp   = imgInfo("buyerFp",     "fingerprints");
-    const w1Fp      = imgInfo("witness1Fp",  "fingerprints");
-    const w2Fp      = imgInfo("witness2Fp",  "fingerprints");
+    const chassis  = imgInfo("chassisImg", "chassis");
+    const car      = imgInfo("carImg",     "car");
+    const engine   = imgInfo("engineImg",  "engine");
+    const sellerFp = imgInfo("sellerFp",   "fingerprints");
+    const buyerFp  = imgInfo("buyerFp",    "fingerprints");
+    const w1Fp     = imgInfo("witness1Fp", "fingerprints");
+    const w2Fp     = imgInfo("witness2Fp", "fingerprints");
 
     const contract = await StampContract.create({
+      // Vehicle
       chassisNo:  metadata.chassisNo  || "",
       modelYear:  metadata.modelYear  || "",
       regNo:      metadata.regNo      || "",
       carModel:   metadata.carModel   || "",
       carColor:   metadata.carColor   || "",
       engineNo:   metadata.engineNo   || "",
-      sellerName:   metadata.sellerName   || "",
-      sellerCnic:   metadata.sellerCnic   || "",
-      sellerTehsil: metadata.sellerTehsil || "",
+      // Seller
+      sellerName:    metadata.sellerName    || "",
+      sellerFather:  metadata.sellerFather  || "",
+      sellerMohalla: metadata.sellerMohalla || "",
+      sellerCnic:    metadata.sellerCnic    || "",
+      sellerTehsil:  metadata.sellerTehsil  || "",
+      // Buyer
       buyerName:    metadata.buyerName    || "",
+      buyerFather:  metadata.buyerFather  || "",
+      buyerMohalla: metadata.buyerMohalla || "",
       buyerCnic:    metadata.buyerCnic    || "",
       buyerTehsil:  metadata.buyerTehsil  || "",
-      paymentMode:  metadata.paymentMode  || "full",
-      priceNum:     metadata.priceNum     || "",
-      priceWords:   metadata.priceWords   || "",
-      advanceNum:   metadata.advanceNum   || "",
-      remainingNum: metadata.remainingNum || "",
-      dueDate:      metadata.dueDate      || "",
-      witness1Name: metadata.witness1Name || "",
-      witness1Cnic: metadata.witness1Cnic || "",
-      witness2Name: metadata.witness2Name || "",
-      witness2Cnic: metadata.witness2Cnic || "",
-      date:         metadata.date         || "",
+      // Payment
+      paymentMode:    metadata.paymentMode    || "full",
+      priceNum:       metadata.priceNum       || "",
+      priceWords:     metadata.priceWords     || "",
+      advanceNum:     metadata.advanceNum     || "",
+      advanceWords:   metadata.advanceWords   || "",
+      remainingNum:   metadata.remainingNum   || "",
+      remainingWords: metadata.remainingWords || "",
+      dueDate:        metadata.dueDate        || "",
+      // Dynamic fields
+      remainingClause: metadata.remainingClause || "",
+      numberPlate:     metadata.numberPlate     ?? "دو عدد نمبر پلیٹ",
+      conditions:      metadata.conditions      || "",
+      // Witnesses
+      witness1Name:   metadata.witness1Name   || "",
+      witness1Cnic:   metadata.witness1Cnic   || "",
+      witness1Tehsil: metadata.witness1Tehsil || "",
+      witness2Name:   metadata.witness2Name   || "",
+      witness2Cnic:   metadata.witness2Cnic   || "",
+      witness2Tehsil: metadata.witness2Tehsil || "",
+      date: metadata.date || "",
       pdfPath,
       pdfUrl,
       chassisImgPath: chassis.path,  chassisImgUrl: chassis.url,
@@ -88,10 +87,8 @@ export const uploadStampContract = async (req, res) => {
       success:  true,
       message:  "Contract saved successfully",
       contract: {
-        _id:       contract._id,
-        pdfUrl:    contract.pdfUrl,
-        chassisNo: contract.chassisNo,
-        modelYear: contract.modelYear,
+        _id: contract._id, pdfUrl: contract.pdfUrl,
+        chassisNo: contract.chassisNo, modelYear: contract.modelYear,
         createdAt: contract.createdAt,
       },
     });
@@ -101,7 +98,6 @@ export const uploadStampContract = async (req, res) => {
   }
 };
 
-// ── GET /api/stamps/search ──────────────────────────────────────────
 export const searchStampContracts = async (req, res) => {
   try {
     const { q = "", year = "" } = req.query;
@@ -143,7 +139,6 @@ export const searchStampContracts = async (req, res) => {
   }
 };
 
-// ── GET /api/stamps/:id ─────────────────────────────────────────────
 export const getStampContract = async (req, res) => {
   try {
     const contract = await StampContract.findById(req.params.id);
