@@ -67,7 +67,7 @@ const productSchema = new mongoose.Schema({
 
   isLimitedProduct: {
     type: Boolean,
-    default: true
+    default: false
   },
 
   imgs_src: [String],
