@@ -17,6 +17,7 @@ import transactionRoute from "./routes/transactionsLog.routes.js";
 import investorRoutes from "./routes/investor.routes.js";
 import stampRoute from "./routes/stamp.routes.js";
 import agentRoute from "./routes/agent.routes.js";
+import bargainerRoute from "./routes/bargainer.routes.js";
 
 // CONFIGURATION 
 dotenv.config();
@@ -59,6 +60,7 @@ app.use("/api/taxonomy", taxonomyControl);
 app.use("/api", orderRoute);
 app.use("/api/stamps", stampRoute);
 app.use("/api/agents", agentRoute);
+app.use("/api/bargainers", bargainerRoute);
 
 
 // INVESTOR ROUTES
