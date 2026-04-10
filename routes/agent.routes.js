@@ -6,6 +6,9 @@ import fs from "fs";
 import {
     createAgent, loginAgent, logoutAgent, refreshAgentToken,
     getMe, listAgents, updateStatus, uploadVehicleImages,
+    listPublicAgents,
+    rateAgent,
+    updateLocation,
 } from "../controllers/agent/agent.Controller.js";
 import { protectAgent } from "../middleware/agent.auth.middleware.js";
 import { protectAdmin } from "../middleware/admin.middleware.js";
@@ -46,9 +49,12 @@ const vehicleUpload = multer({
 router.post("/login", loginAgent);
 router.post("/logout", logoutAgent);
 router.post("/refresh-token", refreshAgentToken);
+router.get("/public", listPublicAgents);         // AgentHub listing
+router.post("/rate/:id", rateAgent);                // Rate an agent
 
 // ── Agent protected ──
 router.get("/me", protectAgent, getMe);
+router.patch("/location", protectAgent, updateLocation);  
 router.patch("/status", protectAgent, updateStatus);
 router.post("/vehicle-images", protectAgent,
     vehicleUpload.fields([
