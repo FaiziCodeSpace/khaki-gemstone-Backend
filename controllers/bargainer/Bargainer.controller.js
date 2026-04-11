@@ -26,7 +26,7 @@ const pub = (b) => ({
   pfp:      b.pfp || "",
 });
 
-// ── POST /api/bargainers/register  (public, multipart/form-data) ────
+// ── POST /api/bargainers/register  ────
 export const registerBargainer = async (req, res) => {
   try {
     const { fullName, phone, cnic, password, city } = req.body;

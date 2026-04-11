@@ -7,7 +7,7 @@ import {
   registerBargainer, loginBargainer, logoutBargainer,
   refreshBargainerToken, getMeBargainer,
   listBargainers, approveBargainer, rejectBargainer, deleteBargainer,
-} from "../controllers/bargainer/Bargainer.Controller.js";
+} from "../controllers/bargainer/bargainer.Controller.js";
 import { protectAdmin, superAdminOnly } from "../middleware/admin.middleware.js";
 import { protectBargainer }             from "../middleware/bargainer.auth.middleware.js";
 
