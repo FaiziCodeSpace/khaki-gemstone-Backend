@@ -9,7 +9,7 @@ import {
   listBargainers, approveBargainer, rejectBargainer, deleteBargainer,
 } from "../controllers/bargainer/bargainer.controller.js";
 import { protectAdmin, superAdminOnly } from "../middleware/admin.middleware.js";
-import { protectBargainer }             from "../middleware/bargainer.auth.middleware.js";
+import { protectBargainer }             from "../middleware/Bargainer.auth.middleware.js";
 
 const router = express.Router();
 
