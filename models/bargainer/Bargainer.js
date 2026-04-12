@@ -6,7 +6,6 @@ const bargainerSchema = new mongoose.Schema(
   {
     fullName: { type: String, required: true, trim: true },
     phone:    { type: String, required: true, unique: true, trim: true },
-    cnic:     { type: String, required: true, unique: true, trim: true },
     password: { type: String, required: true, minlength: 6 },
     city:     { type: String, trim: true, default: "" },
     pfp:      { type: String, default: "" }, 

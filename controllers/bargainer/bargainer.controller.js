@@ -29,15 +29,15 @@ const pub = (b) => ({
 // ── POST /api/bargainers/register  ────
 export const registerBargainer = async (req, res) => {
   try {
-    const { fullName, phone, cnic, password, city } = req.body;
-    if (!fullName || !phone || !cnic || !password)
+    const { fullName, phone, password, city } = req.body;
+    if (!fullName || !phone || !password)
       return res.status(400).json({ success: false, message: "All fields are required" });
 
-    if (await Bargainer.findOne({ $or: [{ phone }, { cnic }] }))
-      return res.status(409).json({ success: false, message: "Account with this phone or CNIC already exists" });
+    if (await Bargainer.findOne({ $or: [{ phone }] }))
+      return res.status(409).json({ success: false, message: "Account with this phone already exists" });
 
     const pfp       = req.file ? `uploads/bargainerPfp/${req.file.filename}` : "";
-    const bargainer = await Bargainer.create({ fullName, phone, cnic, password, city: city || "", pfp });
+    const bargainer = await Bargainer.create({ fullName, phone, password, city: city || "", pfp });
 
     return res.status(201).json({
       success:  true,
