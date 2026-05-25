@@ -21,13 +21,16 @@ import bargainerRoute from "./routes/bargainer.routes.js";
 
 // CONFIGURATION 
 dotenv.config();
-const Frontend = process.env.FRONTEND_URL
+
 // IMPORTAED VARIABLES 
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use(cors({
-    origin: Frontend,
+     origin: [
+    'https://khaki-gemstone-37sf.vercel.app',
+    'http://localhost:5173'  
+  ],
     credentials: true
 }));
 
