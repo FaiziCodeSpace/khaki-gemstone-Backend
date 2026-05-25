@@ -18,7 +18,7 @@ const bargainerSchema = new mongoose.Schema(
     },
     rejectedReason: { type: String, default: "" },
 
-    isActive: { type: Boolean, default: false }, // true only after approval
+    isActive: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
