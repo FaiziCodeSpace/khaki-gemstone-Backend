@@ -1,0 +1,104 @@
+import mongoose from 'mongoose';
+
+const productSchema = new mongoose.Schema({
+  productNumber: {
+    type: String,
+    unique: true,
+    required: true,
+    trim: true
+  },
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  price: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  description: {
+    type: String,
+    required: true
+  },
+  gem_size: String,
+
+  details: {
+    gemstone: String,
+    cut_type: String,
+    color: String,
+    clarity: String
+  },
+
+  more_information: {
+    weight: String,
+    origin: String,
+    treatment: String,
+    refractive_index: String
+  },
+
+  profitMargin: {
+    type: Number,
+    min: 0,
+    default: null
+  },
+  profitSharingModel: {
+    type: Number,
+    min: 0,
+    default: null
+  },
+  status: {
+    type: String,
+    enum: ["Available", "Sold", "Pending", "For Sale", "Reserved"],
+    default: "Available",
+    index: true
+  },
+  portal: {
+    type: String,
+    enum: ["PUBLIC", "INVESTOR", "PUBLIC BY INVESTED"],
+    index: true
+  },
+
+  location: {
+    type: String,
+    trim: true,
+    required: true
+  },
+
+  isLimitedProduct: {
+    type: Boolean,
+    default: false
+  },
+
+  imgs_src: [String],
+  imgs_public_id: [String],
+  lab_test_img_src: String,
+  lab_test_img_public_id: String,
+  certificate_img_src: String,
+  certificate_img_public_id: String,
+
+  isActive: { type: Boolean, default: true },
+  tags: [String]
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+productSchema.virtual('publicPrice').get(function () {
+  if (this.portal === "PUBLIC BY INVESTED") {
+    const markup = this.price * (this.profitMargin / 100);
+    return Math.round(this.price + markup);
+  }
+  return Math.round(this.price);
+});
+
+// Ensure virtuals are included when converting to JSON
+productSchema.set('toJSON', { virtuals: true });
+productSchema.set('toObject', { virtuals: true });
+
+
+
+const Product = mongoose.model('Product', productSchema);
+
+export default Product;

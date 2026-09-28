@@ -1,0 +1,75 @@
+// Packages
+import express from 'express';
+import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
+import cors from "cors";
+// Files 
+import connectDB from './config/db.js';
+import productRoute from "./routes/product.routes.js";
+import authRoute from "./routes/auth.routes.js";
+import cartFavRoute from "./routes/cart&Fav.routes.js";
+import taxonomyControl from "./routes/taxonomyControl.routes.js";
+import adminRoute from "./routes/admin.routes.js";
+import dashboardRoute from "./routes/dashboardMatrics.routes.js";
+import orderRoute from "./routes/order.routes.js";
+import transactionRoute from "./routes/transactionsLog.routes.js";
+import investorRoutes from "./routes/investor.routes.js";
+import stampRoute from "./routes/stamp.routes.js";
+import agentRoute from "./routes/agent.routes.js";
+import bargainerRoute from "./routes/bargainer.routes.js";
+
+// CONFIGURATION 
+dotenv.config();
+
+// IMPORTAED VARIABLES 
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.use(cors({
+     origin: [
+    'https://khaki-gemstone-37sf.vercel.app',
+    'http://localhost:5173'  
+  ],
+    credentials: true
+}));
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.set('trust proxy', 1);
+
+// CONNECT DATABASE
+connectDB();
+
+app.get('/', (req, res) => {
+    res.send('Hello World!');
+})
+
+// --- AUTH & ADMIN ---
+app.use("/api/auth", authRoute);
+// --- DASHBOARD (Public for now) ---
+app.use("/api/admin", dashboardRoute);
+// AdminRoute includes both admin auth and payout management routes
+app.use("/api/admin", adminRoute); 
+// TransactionsLog
+app.use("/api/transactions", transactionRoute);
+
+// --- PRODUCT & OTHER ROUTES ---
+app.use("/api", productRoute);
+app.use("/api", cartFavRoute);
+app.use("/api/taxonomy", taxonomyControl);
+app.use("/api", orderRoute);
+app.use("/api/stamps", stampRoute);
+app.use("/api/agents", agentRoute);
+app.use("/api/bargainers", bargainerRoute);
+
+
+// INVESTOR ROUTES
+app.use("/api/investor", investorRoutes);
+
+// Listening 
+app.listen(PORT, () => {
+    console.log(`http://localhost:${PORT}`);
+})
+
+export default app;
