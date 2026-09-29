@@ -38,8 +38,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.set('trust proxy', 1);
 
-// CONNECT DATABASE
-connectDB();
+// CONNECT DATABASE — every request waits for a live connection (instant once
+// warm); a genuine DB outage now returns a clear 503, not a misleading 401.
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (err) {
+        console.error("DB connection error:", err.message);
+        res.status(503).json({ message: "Database temporarily unavailable, please retry" });
+    }
+});
 
 app.get('/', (req, res) => {
     res.send('Hello World!');

@@ -344,10 +344,19 @@ export const refreshAccessToken = async (req, res) => {
   const refreshToken = req.cookies.refreshToken;
   if (!refreshToken) return res.status(401).json({ message: "Not authenticated" });
 
+  // 1. Refresh token itself invalid/expired — session really is over.
+  let decoded;
   try {
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    const admin = await Admin.findById(decoded.id);
+    decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+  } catch (error) {
+    return res.status(403).json({ message: "Refresh token expired or invalid" });
+  }
 
+  // 2. Token is fine — a failure past this point is a DB/server problem,
+  // not a real session failure, so it must not read as "log the user out"
+  // on the frontend (which only clears the session on a 401/403 here).
+  try {
+    const admin = await Admin.findById(decoded.id);
     if (!admin || !admin.isActive) return res.status(403).json({ message: "Invalid session" });
 
     const accessToken = jwt.sign(
@@ -362,7 +371,8 @@ export const refreshAccessToken = async (req, res) => {
       admin: { id: admin._id, name: admin.name, role: admin.role }
     });
   } catch (error) {
-    res.status(403).json({ message: "Refresh token expired or invalid" });
+    console.error("refreshAccessToken DB error:", error);
+    res.status(500).json({ message: "Server error refreshing session" });
   }
 };
 
