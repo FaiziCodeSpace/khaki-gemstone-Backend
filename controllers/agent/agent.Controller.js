@@ -10,10 +10,16 @@ const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const signAccess  = (id) => jwt.sign({ id }, ACCESS_SECRET,  { expiresIn: "15m" });
 const signRefresh = (id) => jwt.sign({ id }, REFRESH_SECRET, { expiresIn: "7d"  });
 
+// Same cross-site cookie issue as admin: frontend and backend are on
+// different *.vercel.app subdomains (a Public Suffix List entry, so browsers
+// treat them as different sites), and cross-site fetch/XHR never sends a
+// Strict or Lax cookie. None+Secure is required in production; locally
+// frontend/backend share localhost (same-site), so Lax there is fine.
+const isProd = process.env.NODE_ENV !== "development";
 const cookieOpts = {
   httpOnly: true,
-  secure:   process.env.NODE_ENV === "production",
-  sameSite: "strict",
+  secure:   isProd,
+  sameSite: isProd ? "none" : "lax",
   maxAge:   7 * 24 * 60 * 60 * 1000,
 };
 

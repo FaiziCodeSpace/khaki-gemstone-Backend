@@ -9,6 +9,20 @@ import { sendInvestorApprovedEmail } from "../utils/mailer.js";
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Frontend and backend live on different *.vercel.app subdomains, which the
+// browser treats as genuinely different sites (vercel.app is on the Public
+// Suffix List). A cross-site cookie is only ever sent by fetch/XHR when it's
+// SameSite=None — which browsers refuse unless it's also Secure. Locally,
+// frontend and backend share the same site (localhost), so Lax is fine there
+// and avoids requiring HTTPS on localhost.
+const isProd = process.env.NODE_ENV !== "development";
+const REFRESH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? "None" : "Lax",
+  path: '/',
+};
+
 // ================= MERGE CART =================
 const mergeCarts = async (userId, guestCart) => {
   if (!guestCart || !Array.isArray(guestCart) || guestCart.length === 0) return;
@@ -321,10 +335,7 @@ export const adminLogin = async (req, res) => {
 
     // 5. Set Cookie
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "development" ? false : true,
-      sameSite: "Lax",
-      path: '/',
+      ...REFRESH_COOKIE_OPTIONS,
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 Days
     });
 
@@ -377,11 +388,7 @@ export const refreshAccessToken = async (req, res) => {
 };
 
 export const adminLogout = (req, res) => {
-  res.clearCookie('refreshToken', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Lax',
-  });
+  res.clearCookie('refreshToken', REFRESH_COOKIE_OPTIONS);
   res.status(200).json({ message: "Logged out successfully" });
 };
 

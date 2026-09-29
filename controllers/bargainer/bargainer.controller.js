@@ -10,10 +10,12 @@ const COOKIE_NAME    = "bargainerRefreshToken"; // separate from agentRefreshTok
 const signAccess  = (id) => jwt.sign({ id }, ACCESS_SECRET,  { expiresIn: "15m" });
 const signRefresh = (id) => jwt.sign({ id }, REFRESH_SECRET, { expiresIn: "7d"  });
 
+// Same cross-site cookie issue as admin/agent — see agent.Controller.js.
+const isProd = process.env.NODE_ENV !== "development";
 const cookieOpts = {
   httpOnly: true,
-  secure:   process.env.NODE_ENV === "production",
-  sameSite: "strict",
+  secure:   isProd,
+  sameSite: isProd ? "none" : "lax",
   maxAge:   7 * 24 * 60 * 60 * 1000,
 };
 
